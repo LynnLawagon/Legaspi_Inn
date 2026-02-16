@@ -1,0 +1,100 @@
+/* ===== ITEM MODAL ONLY ===== */
+.imodal-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  z-index: 99999;
+}
+.imodal-overlay.show{ display:flex; }
+
+.imodal-card{
+  width: min(650px, 100%);
+  background: #F4E4D1;
+  border-radius: 18px;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.25);
+  padding: 22px 22px 18px;
+  position: relative;
+  border: 1px solid rgba(44,7,53,0.10);
+}
+
+.imodal-close{
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  background: rgba(44,7,53,0.10);
+  color: #2C0735;
+  font-weight: 800;
+}
+
+.imodal-head h2{
+  margin: 0;
+  font-size: 24px;
+  color: #2C0735;
+}
+.imodal-sub{
+  margin: 6px 0 14px;
+  font-size: 13px;
+  color: rgba(44,7,53,0.75);
+}
+
+.imodal-form .ifield{
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.imodal-form .ifield span{
+  font-size: 13px;
+  font-weight: 700;
+  color: #2C0735;
+}
+.imodal-form input{
+  height: 44px;
+  border-radius: 12px;
+  border: none;
+  outline: none;
+  padding: 0 14px;
+  background: #2C0735;
+  color: #F4E4D1;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+}
+.imodal-form input::placeholder{
+  color: rgba(244,228,209,0.55);
+}
+.imodal-form input[readonly]{ opacity: 0.85; }
+
+.igrid-2{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.imodal-actions{
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.ibtn{
+  border: none;
+  border-radius: 999px;
+  height: 40px;
+  padding: 0 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.ibtn.primary{ background: #2C0735; color: #F4E4D1; }
+.ibtn.ghost{ background: rgba(44,7,53,0.12); color: #2C0735; }
+
+@media (max-width: 640px){
+  .igrid-2{ grid-template-columns: 1fr; }
+}
