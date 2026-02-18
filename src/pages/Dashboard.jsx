@@ -85,8 +85,24 @@ export default function Dashboard() {
     chartRef.current = new Chart(ctx, {
       type: "doughnut",
       data: {
-        labels,
-        datasets: [{ data: values, borderWidth: 1 }],
+        datasets: [
+  {
+          data: values,
+          borderWidth: 0,
+          backgroundColor: labels.map((name) => {
+            const s = String(name || "").toLowerCase();
+            if (s === "available") return "#2ecc71";      // green
+            if (s === "cleaning") return "#f1c40f";       // yellow
+            return "#e74c3c";                             // red (not available)
+          }),
+          hoverBackgroundColor: labels.map((name) => {
+            const s = String(name || "").toLowerCase();
+            if (s === "available") return "#2ecc71";
+            if (s === "cleaning") return "#f1c40f";
+            return "#e74c3c";
+          }),
+        },
+      ],
       },
       options: {
         responsive: true,
