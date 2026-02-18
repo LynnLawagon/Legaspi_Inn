@@ -51,7 +51,7 @@ router.get("/", async (req, res) => {
       FROM rooms r
       JOIN room_type rt ON r.room_type_id = rt.room_type_id
       JOIN room_status rs ON r.status_id = rs.status_id
-      ORDER BY r.room_id DESC
+      ORDER BY r.room_id ASC
     `);
     res.json(rows);
   } catch (err) {

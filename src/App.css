@@ -1771,3 +1771,49 @@ body {
   padding: 0;
 }
 
+/* =========================
+   FIXED SIDEBAR (ALL PAGES)
+   ========================= */
+
+/* Make the main layout fill the screen */
+html, body, #root {
+  height: 100%;
+}
+
+/* Sidebar fixed on the left */
+.sidebar{
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+
+  width: 220px;        /* keep your sidebar size */
+  flex: none;          /* stop flex from resizing it */
+  flex-shrink: 0;
+
+  overflow-y: auto;    /* if sidebar content gets long */
+  z-index: 9999;
+}
+
+/* Content area should start after sidebar */
+.container{
+  display: block;      /* sidebar is no longer part of flex flow */
+  min-height: 100vh;
+  width: 100%;
+}
+
+.content{
+  margin-left: 220px;  /* same as sidebar width */
+  min-height: 100vh;
+
+  padding: 20px;
+  overflow-x: auto;    /* wide tables won't break layout */
+}
+
+/* Responsive: optional for small screens */
+@media (max-width: 700px){
+  .sidebar{ width: 200px; }
+  .content{ margin-left: 200px; }
+}
+
+
