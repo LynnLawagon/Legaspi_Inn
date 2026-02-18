@@ -1,17 +1,61 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Chart from "chart.js/auto";
 
+const API_BASE = "http://localhost:5000/api";
+
 export default function Dashboard() {
+  const [dash, setDash] = useState({
+    totalRooms: 0,
+    statusCounts: [],
+    roomList: [],
+  });
+
+  const chartRef = useRef(null);
+
+  useEffect(() => {
+    (async () => {
+      const res = await fetch(`${API_BASE}/dashboard/rooms`);
+      const data = await res.json();
+
+      setDash({
+        totalRooms: data.totalRooms || 0,
+        statusCounts: Array.isArray(data.statusCounts) ? data.statusCounts : [],
+        roomList: Array.isArray(data.roomList) ? data.roomList : [],
+      });
+    })();
+  }, []);
+
+  const countsMap = useMemo(() => {
+    const m = new Map();
+    dash.statusCounts.forEach((s) => m.set(s.status_name, Number(s.count) || 0));
+    return m;
+  }, [dash.statusCounts]);
+
+  const available = countsMap.get("Available") || 0;
+  const cleaning = countsMap.get("Cleaning") || 0;
+  const notAvailable = countsMap.get("Not available") || 0;
+
+  // chart inputs
+  const labels = dash.statusCounts.map((s) => s.status_name);
+  const values = dash.statusCounts.map((s) => Number(s.count) || 0);
+
+  // Build / update chart when labels/values change
   useEffect(() => {
     const canvas = document.getElementById("roomStatusChart");
     if (!canvas) return;
 
+    // destroy old chart if exists
+    if (chartRef.current) {
+      chartRef.current.destroy();
+      chartRef.current = null;
+    }
+
     const ctx = canvas.getContext("2d");
-    const roomStatusChart = new Chart(ctx, {
+    chartRef.current = new Chart(ctx, {
       type: "doughnut",
       data: {
-        labels: ["Available", "Occupied", "Reserved", "Maintenance"],
-        datasets: [{ data: [12, 3, 2, 1], borderWidth: 1 }],
+        labels,
+        datasets: [{ data: values, borderWidth: 1 }],
       },
       options: {
         responsive: true,
@@ -20,46 +64,45 @@ export default function Dashboard() {
       },
     });
 
-    document.querySelectorAll(".room-list li").forEach((li) => {
-      if (li.querySelector(".dot")) return; // avoid duplicates
-      const status = li.dataset.status;
-      const dot = document.createElement("span");
-      dot.classList.add("dot");
+    return () => {
+      if (chartRef.current) {
+        chartRef.current.destroy();
+        chartRef.current = null;
+      }
+    };
+  }, [labels.join("|"), values.join("|")]);
 
-      if (status === "available") dot.classList.add("green");
-      else if (status === "occupied") dot.classList.add("blue");
-      else if (status === "reserved") dot.classList.add("yellow");
-      else if (status === "maintenance") dot.classList.add("red");
-
-      li.prepend(dot);
-    });
-
-    return () => roomStatusChart.destroy();
-  }, []);
+  // helper for dots: match your CSS dot colors
+  function statusToDotClass(statusName) {
+    const s = String(statusName || "").toLowerCase();
+    if (s === "available") return "green";
+    if (s === "cleaning") return "yellow";
+    // Not available (or anything else) goes red
+    return "red";
+  }
 
   return (
     <>
-    
       {/* Summary Cards */}
       <section className="summary-cards">
         <a href="/room" className="card">
           <p>Total Rooms</p>
-          <h3>15</h3>
+          <h3>{dash.totalRooms}</h3>
         </a>
 
         <a href="/room" className="card">
           <p>Available</p>
-          <h3>12</h3>
+          <h3>{available}</h3>
         </a>
 
-        <a href="/transactions" className="card">
-          <p>Check-ins</p>
-          <h3>6</h3>
+        <a href="/room" className="card">
+          <p>Cleaning</p>
+          <h3>{cleaning}</h3>
         </a>
 
-        <a href="/transactions" className="card">
-          <p>Check-outs</p>
-          <h3>3</h3>
+        <a href="/room" className="card">
+          <p>Not available</p>
+          <h3>{notAvailable}</h3>
         </a>
       </section>
 
@@ -70,18 +113,16 @@ export default function Dashboard() {
             <h3>Room Status</h3>
 
             <div className="room-top">
+              {/* Legend follows DB status */}
               <ul className="status-legend">
                 <li>
                   <span className="legend-dot green"></span>Available
                 </li>
                 <li>
-                  <span className="legend-dot blue"></span>Occupied
+                  <span className="legend-dot yellow"></span>Cleaning
                 </li>
                 <li>
-                  <span className="legend-dot yellow"></span>Reserved
-                </li>
-                <li>
-                  <span className="legend-dot red"></span>Maintenance
+                  <span className="legend-dot red"></span>Not available
                 </li>
               </ul>
 
@@ -92,23 +133,22 @@ export default function Dashboard() {
 
             <div className="room-bottom">
               <ul className="room-list">
-                <li data-status="occupied">
-                  R101 <small>Single/3hrs - ₱80</small>
-                </li>
-                <li data-status="reserved">
-                  R102 <small>Double/8hrs - ₱400</small>
-                </li>
-                <li data-status="available">R103</li>
-                <li data-status="available">R104</li>
-                <li data-status="available">R105</li>
-                <li data-status="available">R106</li>
-                <li data-status="maintenance">R108</li>
+                {dash.roomList.map((r) => (
+                  <li key={r.room_id} data-status={String(r.status_name || "").toLowerCase()}>
+                    <span className={`dot ${statusToDotClass(r.status_name)}`} />
+                    {r.room_number}{" "}
+                    <small>
+                      {r.type_name} - ₱{r.base_rate}
+                    </small>
+                  </li>
+                ))}
               </ul>
             </div>
           </div>
         </a>
 
         <div className="tables-section">
+          {/* keep these for now (next we can connect inventory + damages too) */}
           <a href="/inventory" className="card-link">
             <div className="table-card">
               <h3>Low Stock Items</h3>
