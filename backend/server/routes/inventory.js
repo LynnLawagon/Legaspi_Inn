@@ -99,7 +99,7 @@ router.get("/low-stock", async (req, res) => {
       JOIN inventory_category c ON i.category_id = c.category_id
       JOIN inventory_type t ON i.inv_type_id = t.inv_type_id
       WHERE i.quantity > 0 AND i.quantity < ?
-      ORDER BY i.quantity ASC, i.inv_id DESC
+      ORDER BY i.quantity ASC, i.inv_id ASC
       LIMIT ?
       `,
       [THRESHOLD, limit]
@@ -135,7 +135,7 @@ router.get("/", async (req, res) => {
       FROM inventory i
       JOIN inventory_category c ON i.category_id = c.category_id
       JOIN inventory_type t ON i.inv_type_id = t.inv_type_id
-      ORDER BY i.inv_id DESC
+      ORDER BY i.inv_id ASC
     `);
     res.json(rows);
   } catch (err) {

@@ -295,7 +295,7 @@ export default function Inventory() {
               closeMenu();
               if (it) deleteItem(it);
             }}
-            style={{ ...menuBtnStyle, color: "#c0392b" }}
+            style={{ ...menuBtnStyle, color: "#c01300" }}
           >
             Delete
           </button>
