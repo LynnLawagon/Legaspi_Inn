@@ -127,12 +127,14 @@ router.get("/", async (req, res) => {
         c.category_name,
         i.inv_type_id,
         t.type_name,
-        i.invstat_id,
-        s.invstat_name
+        CASE
+          WHEN i.quantity >= 100 THEN 'Available'
+          WHEN i.quantity > 0 AND i.quantity < 100 THEN 'Low Stock'
+          ELSE 'Out of Stock'
+        END AS invstat_name
       FROM inventory i
       JOIN inventory_category c ON i.category_id = c.category_id
       JOIN inventory_type t ON i.inv_type_id = t.inv_type_id
-      JOIN inventory_status s ON i.invstat_id = s.invstat_id
       ORDER BY i.inv_id DESC
     `);
     res.json(rows);
