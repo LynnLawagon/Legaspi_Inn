@@ -33,6 +33,86 @@ router.get("/lookups", async (req, res) => {
 });
 
 /**
+ * ✅ NEW: GET /api/inventory/summary
+ * For dashboard cards
+ */
+/**
+ * GET /api/inventory/summary
+ * Rules:
+ * - available >= 100
+ * - low stock 1..99
+ * - out of stock = 0
+ */
+router.get("/summary", async (req, res) => {
+  try {
+    const THRESHOLD = 100;
+
+    const [[total]] = await pool.query(
+      "SELECT COUNT(*) AS totalItems FROM inventory"
+    );
+
+    const [[available]] = await pool.query(
+      "SELECT COUNT(*) AS availableCount FROM inventory WHERE quantity >= ?",
+      [THRESHOLD]
+    );
+
+    const [[low]] = await pool.query(
+      "SELECT COUNT(*) AS lowStockCount FROM inventory WHERE quantity > 0 AND quantity < ?",
+      [THRESHOLD]
+    );
+
+    const [[out]] = await pool.query(
+      "SELECT COUNT(*) AS outOfStockCount FROM inventory WHERE quantity = 0"
+    );
+
+    res.json({
+      totalItems: Number(total.totalItems) || 0,
+      availableCount: Number(available.availableCount) || 0,
+      lowStockCount: Number(low.lowStockCount) || 0,
+      outOfStockCount: Number(out.outOfStockCount) || 0,
+      threshold: THRESHOLD,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to load inventory summary" });
+  }
+});
+
+/**
+ * GET /api/inventory/low-stock?limit=5
+ * Returns items with 1..99 qty
+ */
+router.get("/low-stock", async (req, res) => {
+  const THRESHOLD = 100;
+  const limit = Math.min(Number(req.query.limit) || 5, 50);
+
+  try {
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        i.inv_id,
+        i.name,
+        i.quantity,
+        c.category_name,
+        t.type_name
+      FROM inventory i
+      JOIN inventory_category c ON i.category_id = c.category_id
+      JOIN inventory_type t ON i.inv_type_id = t.inv_type_id
+      WHERE i.quantity > 0 AND i.quantity < ?
+      ORDER BY i.quantity ASC, i.inv_id DESC
+      LIMIT ?
+      `,
+      [THRESHOLD, limit]
+    );
+
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to load low stock items" });
+  }
+});
+
+/**
  * GET /api/inventory
  * Inventory list with joins
  */

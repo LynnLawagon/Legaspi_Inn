@@ -10,18 +10,52 @@ export default function Dashboard() {
     roomList: [],
   });
 
+  // ✅ NEW inventory dashboard state
+  const [inv, setInv] = useState({
+    summary: {
+      totalItems: 0,
+      lowStockCount: 0,
+      outOfStockCount: 0,
+      lowStockThreshold: 5,
+    },
+    lowStockItems: [],
+  });
+
   const chartRef = useRef(null);
 
+  // ✅ load rooms + inventory dashboard data
   useEffect(() => {
     (async () => {
-      const res = await fetch(`${API_BASE}/dashboard/rooms`);
-      const data = await res.json();
+      try {
+        const [roomsRes, invSumRes, lowRes] = await Promise.all([
+          fetch(`${API_BASE}/dashboard/rooms`),
+          fetch(`${API_BASE}/inventory/summary`),
+          fetch(`${API_BASE}/inventory/low-stock?limit=10`),
+        ]);
 
-      setDash({
-        totalRooms: data.totalRooms || 0,
-        statusCounts: Array.isArray(data.statusCounts) ? data.statusCounts : [],
-        roomList: Array.isArray(data.roomList) ? data.roomList : [],
-      });
+        const roomsData = await roomsRes.json();
+        const invSummary = await invSumRes.json();
+        const lowStockItems = await lowRes.json();
+
+        setDash({
+          totalRooms: roomsData.totalRooms || 0,
+          statusCounts: Array.isArray(roomsData.statusCounts) ? roomsData.statusCounts : [],
+          roomList: Array.isArray(roomsData.roomList) ? roomsData.roomList : [],
+        });
+
+        setInv({
+          summary: {
+          totalItems: invSummary.totalItems || 0,
+          availableCount: invSummary.availableCount || 0,
+          lowStockCount: invSummary.lowStockCount || 0,
+          outOfStockCount: invSummary.outOfStockCount || 0,
+          threshold: invSummary.threshold ?? 100,
+        },
+          lowStockItems: Array.isArray(lowStockItems) ? lowStockItems : [],
+        });
+      } catch (e) {
+        console.error("Dashboard load failed:", e);
+      }
     })();
   }, []);
 
@@ -35,16 +69,13 @@ export default function Dashboard() {
   const cleaning = countsMap.get("Cleaning") || 0;
   const notAvailable = countsMap.get("Not available") || 0;
 
-  // chart inputs
   const labels = dash.statusCounts.map((s) => s.status_name);
   const values = dash.statusCounts.map((s) => Number(s.count) || 0);
 
-  // Build / update chart when labels/values change
   useEffect(() => {
     const canvas = document.getElementById("roomStatusChart");
     if (!canvas) return;
 
-    // destroy old chart if exists
     if (chartRef.current) {
       chartRef.current.destroy();
       chartRef.current = null;
@@ -72,12 +103,10 @@ export default function Dashboard() {
     };
   }, [labels.join("|"), values.join("|")]);
 
-  // helper for dots: match your CSS dot colors
   function statusToDotClass(statusName) {
     const s = String(statusName || "").toLowerCase();
     if (s === "available") return "green";
     if (s === "cleaning") return "yellow";
-    // Not available (or anything else) goes red
     return "red";
   }
 
@@ -85,26 +114,48 @@ export default function Dashboard() {
     <>
       {/* Summary Cards */}
       <section className="summary-cards">
-        <a href="/room" className="card">
-          <p>Total Rooms</p>
-          <h3>{dash.totalRooms}</h3>
-        </a>
 
-        <a href="/room" className="card">
-          <p>Available</p>
-          <h3>{available}</h3>
-        </a>
+  {/* ===== Row 1: ROOM STATUS ===== */}
+  <div className="cards-row">
+    <a href="/room" className="card">
+      <p>Room Available</p>
+      <h3>{available}</h3>
+    </a>
 
-        <a href="/room" className="card">
-          <p>Cleaning</p>
-          <h3>{cleaning}</h3>
-        </a>
+    <a href="/room" className="card">
+      <p>Cleaning</p>
+      <h3>{cleaning}</h3>
+    </a>
 
-        <a href="/room" className="card">
-          <p>Not available</p>
-          <h3>{notAvailable}</h3>
-        </a>
-      </section>
+    <a href="/room" className="card">
+      <p>Not available</p>
+      <h3>{notAvailable}</h3>
+    </a>
+  </div>
+
+  {/* Divider */}
+  <div className="cards-divider" />
+
+  {/* ===== Row 2: INVENTORY STATUS ===== */}
+  <div className="cards-row">
+    <a href="/inventory" className="card">
+      <p>Inventory Available</p>
+      <h3>{inv.summary.availableCount}</h3>
+    </a>
+
+    <a href="/inventory" className="card">
+      <p>Low Stock</p>
+      <h3>{inv.summary.lowStockCount}</h3>
+    </a>
+
+    <a href="/inventory" className="card">
+      <p>Out of Stock</p>
+      <h3>{inv.summary.outOfStockCount}</h3>
+    </a>
+  </div>
+
+</section>
+
 
       {/* Main Dashboard */}
       <section className="dashboard-main">
@@ -113,7 +164,6 @@ export default function Dashboard() {
             <h3>Room Status</h3>
 
             <div className="room-top">
-              {/* Legend follows DB status */}
               <ul className="status-legend">
                 <li>
                   <span className="legend-dot green"></span>Available
@@ -148,37 +198,45 @@ export default function Dashboard() {
         </a>
 
         <div className="tables-section">
-          {/* keep these for now (next we can connect inventory + damages too) */}
+          {/* ✅ CONNECTED Low Stock Items */}
           <a href="/inventory" className="card-link">
             <div className="table-card">
-              <h3>Low Stock Items</h3>
+              <h3>
+              Low Stock Item
+            </h3>
+
+
               <table>
                 <thead>
                   <tr>
                     <th>Item Name</th>
                     <th>Quantity</th>
                     <th>Category</th>
-                    <th>Cost</th>
                   </tr>
                 </thead>
+
                 <tbody>
-                  <tr>
-                    <td>Soap</td>
-                    <td>3</td>
-                    <td>Toiletries</td>
-                    <td>70</td>
-                  </tr>
-                  <tr>
-                    <td>Bottled Water</td>
-                    <td>4</td>
-                    <td>Amenities</td>
-                    <td>150</td>
-                  </tr>
+                  {inv.lowStockItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} style={{ opacity: 0.7 }}>
+                        No low stock items
+                      </td>
+                    </tr>
+                  ) : (
+                    inv.lowStockItems.map((it) => (
+                      <tr key={it.inv_id}>
+                        <td>{it.name}</td>
+                        <td>{it.quantity}</td>
+                        <td>{it.category_name}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
           </a>
 
+          {/* Damages still placeholder (next to connect) */}
           <div className="table-card">
             <h3>Damages</h3>
             <table>

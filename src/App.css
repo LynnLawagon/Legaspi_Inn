@@ -1818,4 +1818,38 @@ html, body, #root {
   .content{ margin-left: 200px; }
 }
 
+/* Summary cards grouped into rows */
+.summary-cards{
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  margin-top: 20px;
+}
 
+/* Each row is its own grid */
+/* Tighter summary rows */
+.cards-row{
+  display: grid;
+  grid-template-columns: repeat(3, 260px);  /* fixed card width */
+  gap: auto;                                 /* smaller space between cards */
+  justify-content: left;                   /* center the row */
+}
+
+/* Make cards a bit more compact */
+.summary-cards .card{
+  min-height: 90px;
+}
+
+/* Responsive: stack nicely on smaller screens */
+@media (max-width: 900px){
+  .cards-row{
+    grid-template-columns: repeat(2, 260px);
+  }
+}
+
+@media (max-width: 600px){
+  .cards-row{
+    grid-template-columns: 1fr;
+    justify-content: stretch;
+  }
+}
