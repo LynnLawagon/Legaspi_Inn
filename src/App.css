@@ -291,7 +291,9 @@
 }
 
 /* action icon */
-.td-action{ text-align:center; }
+.td-action{ 
+width: 60px;
+}
 .row-icon{
   width: 18px;
   height: 18px;
