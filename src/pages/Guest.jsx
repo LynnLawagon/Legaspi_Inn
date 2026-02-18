@@ -220,7 +220,7 @@ export default function Guest() {
                           }}
                           title="More"
                         >
-                          …
+                          ...
                         </button>
                       </td>
                     </tr>

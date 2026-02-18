@@ -137,9 +137,7 @@
 }
 
 /* action icon right */
-.td-action{
-  text-align: center;
-}
+
 .row-icon{
   width: 18px;
   height: 18px;
@@ -291,9 +289,6 @@
 }
 
 /* action icon */
-.td-action{ 
-width: 60px;
-}
 .row-icon{
   width: 18px;
   height: 18px;
@@ -1854,4 +1849,30 @@ html, body, #root {
     grid-template-columns: 1fr;
     justify-content: stretch;
   }
+}
+/* Guest action column fixes */
+.g-table .col-actions{
+  width: 70px;
+}
+
+.g-table td.td-action{
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: nowrap !important;
+}
+
+.g-more-btn{
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-weight: 900;
+  font-size: 18px;     /* adjust if you want */
+  line-height: 1;
+  padding: 6px 10px;
+  border-radius: 10px;
+  color: #2C0735;
+}
+
+.g-more-btn:hover{
+  background: rgba(44,7,53,0.08);
 }
