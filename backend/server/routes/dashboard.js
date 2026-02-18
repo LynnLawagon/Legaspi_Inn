@@ -49,4 +49,59 @@ router.get("/rooms", async (req, res) => {
   }
 });
 
+router.get("/inventory/low-stock", async (req, res) => {
+  try {
+    const limit = Number(req.query.limit || 5);
+    const threshold = Number(req.query.threshold || 5);
+
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        i.inv_id,
+        i.name,
+        i.quantity,
+        c.category_name
+      FROM inventory i
+      JOIN inventory_category c ON i.category_id = c.category_id
+      WHERE i.quantity <= ?
+      ORDER BY i.quantity ASC, i.inv_id ASC
+      LIMIT ?
+      `,
+      [threshold, limit]
+    );
+
+    res.json({ threshold, items: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to load low stock items" });
+  }
+});
+router.get("/inventory/low-stock", async (req, res) => {
+  try {
+    const limit = Number(req.query.limit || 5);
+    const threshold = Number(req.query.threshold || 5);
+
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        i.inv_id,
+        i.name,
+        i.quantity,
+        c.category_name
+      FROM inventory i
+      JOIN inventory_category c ON i.category_id = c.category_id
+      WHERE i.quantity <= ?
+      ORDER BY i.quantity ASC, i.inv_id ASC
+      LIMIT ?
+      `,
+      [threshold, limit]
+    );
+
+    res.json({ threshold, items: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to load low stock items" });
+  }
+});
+
 module.exports = router;

@@ -240,12 +240,14 @@
   background: rgba(217,217,217,0.40);
   border-radius: 22px;
   padding: 18px;
+  overflow: visible;
 }
 
 .inv-table-wrap{
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: visible;
   border-radius: 18px;
+  position: relative;
 }
 
 /* table */

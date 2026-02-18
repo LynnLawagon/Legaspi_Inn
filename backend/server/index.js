@@ -4,6 +4,7 @@ const cors = require("cors");
 
 const roomsRoutes = require("./routes/rooms");
 const dashboardRoutes = require("./routes/dashboard");
+const inventoryRoutes = require("./routes/inventory");
 
 const app = express();
 app.use(cors());
@@ -13,6 +14,7 @@ app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 app.use("/api/rooms", roomsRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/inventory", inventoryRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`API running on http://localhost:${PORT}`));
