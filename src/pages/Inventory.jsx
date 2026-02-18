@@ -7,20 +7,13 @@ export default function Inventory() {
   const [lookups, setLookups] = useState({
     categories: [],
     types: [],
-    statuses: [],
+    statuses: [], // optional, not used for editing anymore
   });
+
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // ✅ dropdown state
-  const [menu, setMenu] = useState({
-    open: false,
-    inv_id: null,
-    top: 0,
-    left: 0,
-  });
-
-  // store the selected row item
+  const [menu, setMenu] = useState({ open: false, inv_id: null, top: 0, left: 0 });
   const selectedRef = useRef(null);
 
   const menuBtnStyle = {
@@ -88,7 +81,6 @@ export default function Inventory() {
     selectedRef.current = null;
   }
 
-  // ✅ open menu using the button's screen position
   function openMenuForItem(e, it) {
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
@@ -99,11 +91,10 @@ export default function Inventory() {
       open: true,
       inv_id: it.inv_id,
       top: rect.bottom + 8,
-      left: rect.right - 160, // menu width alignment
+      left: rect.right - 160,
     });
   }
 
-  // close menu on ESC
   useEffect(() => {
     function onKey(e) {
       if (e.key === "Escape") closeMenu();
@@ -135,19 +126,13 @@ export default function Inventory() {
     const qtyStr = window.prompt("Quantity:", "0");
     if (qtyStr == null) return;
     const quantity = Number(qtyStr);
+
     if (!Number.isFinite(quantity) || quantity < 0) {
       alert("Quantity must be a valid number (0 or higher).");
       return;
     }
 
-    const invstat_id = pickFromList(
-      "Choose invstat_id:",
-      lookups.statuses,
-      "invstat_id",
-      "invstat_name"
-    );
-    if (!invstat_id) return;
-
+    // IMPORTANT: do NOT send invstat_id anymore
     const res = await fetch(`${API_BASE}/inventory`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -156,7 +141,6 @@ export default function Inventory() {
         category_id: Number(category_id),
         inv_type_id: Number(inv_type_id),
         quantity,
-        invstat_id: Number(invstat_id),
       }),
     });
 
@@ -193,21 +177,14 @@ export default function Inventory() {
 
     const qtyStr = window.prompt("Quantity:", String(it.quantity));
     if (qtyStr == null) return;
+
     const quantity = Number(qtyStr);
     if (!Number.isFinite(quantity) || quantity < 0) {
       alert("Quantity must be a valid number (0 or higher).");
       return;
     }
 
-    const invstat_id = pickFromList(
-      `Choose invstat_id (current: ${it.invstat_id}):`,
-      lookups.statuses,
-      "invstat_id",
-      "invstat_name",
-      String(it.invstat_id)
-    );
-    if (!invstat_id) return;
-
+    // IMPORTANT: do NOT send invstat_id anymore
     const res = await fetch(`${API_BASE}/inventory/${it.inv_id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -216,7 +193,6 @@ export default function Inventory() {
         category_id: Number(category_id),
         inv_type_id: Number(inv_type_id),
         quantity,
-        invstat_id: Number(invstat_id),
       }),
     });
 
@@ -238,10 +214,7 @@ export default function Inventory() {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      alert(
-        err.message ||
-          "Failed to delete item (it might be referenced in other tables)."
-      );
+      alert(err.message || "Failed to delete item (maybe referenced by other tables).");
       return;
     }
 
@@ -250,20 +223,13 @@ export default function Inventory() {
 
   return (
     <>
-      {/* close dropdown if you click outside */}
       {menu.open && (
         <div
           onClick={closeMenu}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "transparent",
-            zIndex: 99998,
-          }}
+          style={{ position: "fixed", inset: 0, background: "transparent", zIndex: 99998 }}
         />
       )}
 
-      {/* dropdown itself (fixed, always visible) */}
       {menu.open && (
         <div
           style={{
@@ -295,7 +261,7 @@ export default function Inventory() {
               closeMenu();
               if (it) deleteItem(it);
             }}
-            style={{ ...menuBtnStyle, color: "#c01300" }}
+            style={{ ...menuBtnStyle, color: "#c0392b" }}
           >
             Delete
           </button>
@@ -347,7 +313,9 @@ export default function Inventory() {
                       <td>{it.category_name}</td>
                       <td>{it.type_name}</td>
                       <td>{it.quantity}</td>
-                      <td>{it.invstat_name}</td>
+
+                      {/* IMPORTANT: show from DB */}
+                      <td>{it.invstat_name || "-"}</td>
 
                       <td className="td-action">
                         <button

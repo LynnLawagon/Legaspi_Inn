@@ -1876,3 +1876,17 @@ html, body, #root {
 .g-more-btn:hover{
   background: rgba(44,7,53,0.08);
 }
+
+@media (max-width: 600px) {
+    #drop-area {
+        max-width: 90%;
+        padding: 15px;
+    }
+
+    #img-view img {
+        height: 50%;
+    }
+
+    #img-view p { font-size: 1em; }
+    #img-view span { font-size: 0.8em; }
+}
