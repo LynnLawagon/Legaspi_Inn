@@ -87,11 +87,6 @@ export default function Layout() {
                 if (e.key === "Enter" || e.key === " ") setCalcOpen(true);
               }}
             />
-            <img
-              src="/assets/images/notification.png"
-              alt="notification"
-              className="notification"
-            />
           </div>
         </header>
 

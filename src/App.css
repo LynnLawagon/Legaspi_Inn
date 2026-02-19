@@ -874,32 +874,55 @@ body {
 }
 
 /* Summary Cards */
-.summary-cards {
+.summary-cards{
   display: grid;
-  grid-template-columns: repeat(4, max-content);
+  grid-template-columns: repeat(3, 1fr) 1px repeat(3, 1fr);
   gap: 20px;
   margin-top: 20px;
-  justify-content: start;
+  margin-bottom: 20px;
+  align-items: stretch;
 }
 
-.summary-cards .card {
+.cards-row{ display: contents; }
+.cards-divider{
+  display: block;
+  width: 0.5%;
+  background: rgba(44, 7, 53, 0.18); /* subtle purple line */
+  border-radius: 99px;
+ }
+
+.summary-cards .card{
+  width: 100%;
+  height: 100px;
   background: #fdf7f0;
   padding: 12px 16px;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-  height: 100px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  width: 200px;
-}
-
-.summary-cards .card{
-  display: flex;
   text-decoration: none;
   color: inherit;
-  cursor: pointer;
+
+  transition: transform .2s ease, box-shadow .2s ease;
 }
+.summary-cards .card:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+}
+
+/* responsive */
+@media (max-width: 1200px){
+  .summary-cards{ grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 700px){
+  .summary-cards{ grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 420px){
+  .summary-cards{ grid-template-columns: 1fr; }
+}
+
 
 .summary-cards .card:hover{
   transform: translateY(-2px);
@@ -923,11 +946,16 @@ body {
   text-decoration: none;
   color: inherit;
   display: block;
+  height: 100%;
+
 }
 
 .chart-link .chart-section{
   cursor: pointer;
   transition: 0.2s ease;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .chart-link .chart-section:hover{
@@ -959,9 +987,10 @@ body {
 .dashboard-main {
   display: grid;
   grid-template-columns: 2fr 3fr;
-  gap: 20px;
-  margin-top: 30px;
-  align-items: start;
+  grid-template-rows: auto 1fr;   /* top = auto, bottom = fill */
+  column-gap: 20px;
+  row-gap: 12px;                 /* ✅ mao ni molesen sa gap lowstock-damages */
+  align-items: stretch;
 }
 
 /* Room Status Card */
@@ -971,6 +1000,11 @@ body {
   border-radius: 18px;
   box-shadow: 0 6px 18px rgba(0,0,0,0.10);
   overflow: hidden;
+  grid-row: 1 / span 2; 
+  display: flex;
+  flex-direction: column;
+  height: 100%;      /* so it can fill the grid cell */
+  min-height: 0;
 }
 
 /* TOP area */
@@ -1019,6 +1053,8 @@ body {
   margin: 0 auto;
   position: relative;
   overflow: hidden;
+  flex: 0 0 auto;
+
 }
 
 .chart-placeholder canvas{
@@ -1032,8 +1068,10 @@ body {
   margin-top: 12px;
   border-top: 2px solid #eee;
   padding-top: 12px;
-  max-height: 170px;
-  overflow-y: auto;
+  flex: 1 1 auto;      /* fill remaining space */
+  max-height: calc(11*34px);
+  min-height: 0;       /* IMPORTANT: enables flex scrolling */
+  overflow-y: auto; 
 }
 
 /* room list */
@@ -1047,7 +1085,7 @@ body {
   display:flex;
   align-items:center;
   gap: 12px;
-  padding: 10px 0;
+  padding: 8px 0;
   border-bottom: 1px solid #f0f0f0;
   font-size: 14px;
   font-weight: 600;
@@ -1177,8 +1215,10 @@ body {
 /* Tables */
 .tables-section {
   display: grid;
-  grid-template-rows: auto auto;
-  gap: 40px;
+  grid-template-rows: auto 1fr;  /* ✅ bottom row mo-fill */
+  gap: 14px;                    /* ✅ gamay na gap */
+  min-height: 0; 
+  
 }
 
 .table-card {
@@ -1313,7 +1353,15 @@ table button {
   color: #2C0735;
 }
 
+.table-card tbody tr.damage-row:hover{
+  background: #f7efe6;
+}
 
+.tables-section .table-card:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+  transition: 0.2s ease;
+}
 
 /* =========================
    transaction-modal.css
@@ -1578,6 +1626,45 @@ table button {
   margin: 0 auto;
 }
 
+/* =========================
+   STATUS PILL (match figma)
+   ========================= */
+
+/* center the pill inside its column */
+.tx-table td.col-status{
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+/* the pill itself */
+.status-pill{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  height: 32px;
+  min-width: 40px;          /* mao ning “lapad” sa pill */
+  padding: 0 18px;
+
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: lowercase;
+
+  background: #F4E4D1;       /* same beige background */
+  color: #2C0735;
+  border: 4px solid #F6A11A; /* orange outline */
+}
+
+/* unpaid = gray outline */
+.status-pill.unpaid{
+  border-color: #BFB8B0;
+}
+
+/* paid = orange outline (already) */
+.status-pill.paid{
+  border-color: #F6A11A;
+}
 
 
 /* =========================
@@ -1815,27 +1902,6 @@ html, body, #root {
   .content{ margin-left: 200px; }
 }
 
-/* Summary cards grouped into rows */
-.summary-cards{
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 14px;
-  margin-top: 20px;
-}
-
-/* Each row is its own grid */
-/* Tighter summary rows */
-.cards-row{
-  display: grid;
-  grid-template-columns: repeat(3, 260px);  /* fixed card width */
-  gap: auto;                                 /* smaller space between cards */
-  justify-content: left;                   /* center the row */
-}
-
-/* Make cards a bit more compact */
-.summary-cards .card{
-  min-height: 90px;
-}
 
 /* Responsive: stack nicely on smaller screens */
 @media (max-width: 900px){

@@ -11,71 +11,97 @@ function getIdNumber(id) {
   const n = parseInt(String(id || "").replace(/^T/i, ""), 10);
   return Number.isNaN(n) ? null : n;
 }
-function formatDateTimeParts(dtLocal) {
-  if (!dtLocal) return { date: "", time: "" };
-  const [date, time] = dtLocal.split("T");
-  return { date: date || "", time: time || "" };
+
+/** expects ISO string "YYYY-MM-DDTHH:mm" or "YYYY-MM-DDTHH:mm:ss"
+ * returns { date:"YYYY/MM/DD", time:"HH:mm:ss" }
+ */
+function splitToDisplayParts(dtLocal) {
+  if (!dtLocal) return { date: "—", time: "" };
+  const d = new Date(dtLocal);
+  if (Number.isNaN(d.getTime())) {
+    // fallback if already "2025/01/25" etc.
+    const [date, time] = String(dtLocal).split("T");
+    return { date: (date || "—").replaceAll("-", "/"), time: (time || "").slice(0, 8) };
+  }
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  const ss = String(d.getSeconds()).padStart(2, "0");
+  return { date: `${yyyy}/${mm}/${dd}`, time: `${hh}:${mi}:${ss}` };
+}
+
+function nowLocalIso() {
+  const d = new Date();
+  const off = d.getTimezoneOffset();
+  const local = new Date(d.getTime() - off * 60000);
+  return local.toISOString().slice(0, 19); // YYYY-MM-DDTHH:mm:ss
 }
 
 export default function Transactions() {
-  // ----- table data -----
+  // ---- seed rows (same as your HTML) ----
   const initialRows = [
     {
       trans_id: "T0001",
+      status: "paid",
       guest_name: "Jill Santiago",
       username: "Jeson",
       room_num: "101",
       checkin: "2025-01-25T12:25:03",
       checkout: "2025-01-25T03:25:03",
       amount: "80",
-      date_created: "2025-01-25",
+      date_created_dt: "2025-01-25T03:25:03",
     },
     {
       trans_id: "T0002",
+      status: "paid",
       guest_name: "Mart Santiago",
       username: "Jeson",
       room_num: "101",
       checkin: "2025-01-25T12:25:03",
       checkout: "2025-01-25T03:25:03",
       amount: "80",
-      date_created: "2025-01-25",
+      date_created_dt: "2025-01-25T03:25:03",
     },
     {
       trans_id: "T0003",
+      status: "unpaid",
       guest_name: "Ann Flores",
       username: "Jeson",
       room_num: "107",
       checkin: "2025-01-25T07:40:56",
       checkout: "2025-01-25T03:40:56",
       amount: "200",
-      date_created: "2025-01-25",
+      date_created_dt: "2025-01-25T03:25:03",
     },
   ];
 
   const [transactions, setTransactions] = useState(initialRows);
   const [search, setSearch] = useState("");
 
-  // ----- New Transaction modal -----
+  // ---- New Transaction modal state ----
   const [txOpen, setTxOpen] = useState(false);
   const [txForm, setTxForm] = useState({
     trans_id: "",
+    status: "unpaid",
     guest_name: "",
     username: "",
     room_num: "",
     checkin: "",
     checkout: "",
     amount: "",
-    date_created: "",
+    date_created_dt: "",
   });
 
-  // ----- Sales modal (React component) -----
+  // ---- Receipt modal state (stub: ikaw na connect sa receipt modal UI if naa ka component) ----
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [receiptTarget, setReceiptTarget] = useState(null);
+
+  // ---- Sales modal state ----
   const [salesOpen, setSalesOpen] = useState(false);
-  const [salesTarget, setSalesTarget] = useState({
-    transId: "",
-    guest: "",
-  });
+  const [salesTarget, setSalesTarget] = useState({ transId: "", guest: "" });
 
-  // Items shown in SalesModal dropdown
   const salesItems = useMemo(
     () => [
       { name: "Nature’s Spring", cost: 20 },
@@ -85,7 +111,7 @@ export default function Transactions() {
     []
   );
 
-  // Load from localStorage on mount
+  // Load saved user-added transactions
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
     if (Array.isArray(saved) && saved.length) {
@@ -96,7 +122,7 @@ export default function Transactions() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Generate next ID based on existing + saved
+  // Next ID
   const nextId = useMemo(() => {
     let max = 3;
     transactions.forEach((t) => {
@@ -106,24 +132,22 @@ export default function Transactions() {
     return `T${pad(max + 1)}`;
   }, [transactions]);
 
-  // When opening New Tx modal, prefill ID + date
+  // When opening modal, prefill ID + date_created_dt
   useEffect(() => {
-    if (txOpen) {
-      setTxForm((prev) => ({
-        ...prev,
-        trans_id: prev.trans_id || nextId,
-        date_created: prev.date_created || new Date().toISOString().slice(0, 10),
-      }));
-    }
+    if (!txOpen) return;
+    setTxForm((p) => ({
+      ...p,
+      trans_id: p.trans_id || nextId,
+      date_created_dt: p.date_created_dt || nowLocalIso(),
+      status: p.status || "unpaid",
+    }));
   }, [txOpen, nextId]);
 
   // Search filter
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return transactions;
-    return transactions.filter((t) =>
-      (t.guest_name || "").toLowerCase().includes(q)
-    );
+    return transactions.filter((t) => (t.guest_name || "").toLowerCase().includes(q));
   }, [search, transactions]);
 
   function openTxModal() {
@@ -134,6 +158,7 @@ export default function Transactions() {
   }
 
   function saveTransactionsToStorage(list) {
+    // store only user-added (T0004+)
     const onlyUserAdded = list.filter((t) => {
       const n = getIdNumber(t.trans_id);
       return n !== null && n > 3;
@@ -150,20 +175,23 @@ export default function Transactions() {
     if (inVal && outVal) {
       const inDate = new Date(inVal);
       const outDate = new Date(outVal);
-      if (outDate <= inDate) {
-        alert("Check-out must be after Check-in.");
-        return;
+      if (!Number.isNaN(inDate.getTime()) && !Number.isNaN(outDate.getTime())) {
+        if (outDate <= inDate) {
+          alert("Check-out must be after Check-in.");
+          return;
+        }
       }
     }
 
     const newTx = {
       ...txForm,
       trans_id: (txForm.trans_id || "").trim() || nextId,
+      status: (txForm.status || "unpaid").toLowerCase(),
       guest_name: (txForm.guest_name || "").trim(),
       username: (txForm.username || "").trim(),
       room_num: (txForm.room_num || "").trim(),
-      amount: txForm.amount,
-      date_created: txForm.date_created,
+      amount: String(txForm.amount ?? "").trim(),
+      date_created_dt: txForm.date_created_dt || nowLocalIso(),
     };
 
     setTransactions((prev) => {
@@ -176,40 +204,45 @@ export default function Transactions() {
 
     setTxForm({
       trans_id: "",
+      status: "unpaid",
       guest_name: "",
       username: "",
       room_num: "",
       checkin: "",
       checkout: "",
       amount: "",
-      date_created: "",
+      date_created_dt: "",
     });
     closeTxModal();
   }
 
-  // ✅ OPEN SalesModal with row info
+  // Receipt open (ikaw na connect actual receipt modal content)
+  function openReceiptModal(transId) {
+    const tx = transactions.find((t) => t.trans_id === transId) || null;
+    setReceiptTarget(tx);
+    setReceiptOpen(true);
+  }
+  function closeReceiptModal() {
+    setReceiptOpen(false);
+    setReceiptTarget(null);
+  }
+
+  // Sales modal
   function openSalesModal(transId, guestName) {
     setSalesTarget({ transId, guest: guestName || "" });
     setSalesOpen(true);
   }
-
   function closeSalesModal() {
     setSalesOpen(false);
   }
 
-  // ✅ Save sale from SalesModal -> localStorage
   function saveSale(sale) {
-    // sale = { trans_id, guest, item, qty, cost, subtotal, date }
     const trans_id = sale.trans_id;
-
     const data = JSON.parse(localStorage.getItem(SALES_KEY) || "{}");
     const list = Array.isArray(data[trans_id]) ? data[trans_id] : [];
-
     list.push(sale);
-
     data[trans_id] = list;
     localStorage.setItem(SALES_KEY, JSON.stringify(data));
-
     alert(`Saved sale for ${trans_id}!`);
   }
 
@@ -229,6 +262,12 @@ export default function Transactions() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+
+          {/* optional: icons on right (calculator + notif) if you want */}
+          {/* <div className="top-icons">
+            <img src="/assets/images/calculator.png" alt="calculator" className="calculator" />
+            <img src="/assets/images/notification.png" alt="notification" />
+          </div> */}
         </div>
       </header>
 
@@ -237,21 +276,22 @@ export default function Transactions() {
         <div className="tx-table-wrap">
           <table className="tx-table">
             <colgroup>
-              <col style={{ width: "55px" }} />
-              <col style={{ width: "140px" }} />
-              <col style={{ width: "190px" }} />
-              <col style={{ width: "120px" }} />
-              <col style={{ width: "90px" }} />
-              <col style={{ width: "160px" }} />
-              <col style={{ width: "160px" }} />
-              <col style={{ width: "90px" }} />
-              <col style={{ width: "140px" }} />
+              <col style={{ width: "55px" }} />   {/* receipt icon */}
+              <col style={{ width: "100px" }} />  {/* status */}
+              <col style={{ width: "130px" }} />  {/* guest */}
+              <col style={{ width: "110px" }} />  {/* username */}
+              <col style={{ width: "60px" }} />   {/* room */}
+              <col style={{ width: "140px" }} />  {/* checkin */}
+              <col style={{ width: "160px" }} />  {/* checkout */}
+              <col style={{ width: "90px" }} />   {/* amount */}
+              <col style={{ width: "160px" }} />  {/* date created */}
+              <col style={{ width: "52px" }} />   {/* cart */}
             </colgroup>
 
             <thead>
               <tr>
                 <th className="col-icon"></th>
-                <th>Transaction ID</th>
+                <th className="col-status"></th>
                 <th>Guest Name</th>
                 <th>Username</th>
                 <th>Room #</th>
@@ -259,34 +299,45 @@ export default function Transactions() {
                 <th>Check-out</th>
                 <th>Amount</th>
                 <th>Date Created</th>
+                <th className="col-action"></th>
               </tr>
             </thead>
 
             <tbody>
               {filtered.map((t) => {
-                const ci = formatDateTimeParts(t.checkin);
-                const co = formatDateTimeParts(t.checkout);
+                const ci = splitToDisplayParts(t.checkin);
+                const co = splitToDisplayParts(t.checkout);
+                const dc = splitToDisplayParts(t.date_created_dt);
+                const status = (t.status || "unpaid").toLowerCase();
 
                 return (
                   <tr key={t.trans_id}>
+                    {/* receipt icon */}
                     <td className="col-icon">
                       <button
-                        className="sales-btn"
+                        className="icon-btn receipt-btn"
                         type="button"
-                        onClick={() => openSalesModal(t.trans_id, t.guest_name)}
-                        title="Sales"
+                        data-trans-id={t.trans_id}
+                        onClick={() => openReceiptModal(t.trans_id)}
+                        title="Receipt"
                       >
                         <img
                           className="row-icon"
-                          src="/assets/images/sales.png"
-                          alt="sales"
+                          src="/assets/images/receipt.png"
+                          alt="receipt"
                         />
                       </button>
                     </td>
 
-                    <td>{t.trans_id}</td>
-                    <td>{t.guest_name}</td>
-                    <td>{t.username}</td>
+                    {/* status pill */}
+                    <td className="col-status">
+                      <span className={`status-pill ${status === "paid" ? "paid" : "unpaid"}`}>
+                        {status}
+                      </span>
+                    </td>
+
+                    <td className="td-left">{t.guest_name}</td>
+                    <td className="td-left">{t.username}</td>
                     <td>{t.room_num}</td>
 
                     <td className="td-center">
@@ -301,15 +352,37 @@ export default function Transactions() {
                       <span className="muted">{co.time}</span>
                     </td>
 
-                    <td className="td-center">{t.amount}</td>
-                    <td className="td-center">{t.date_created}</td>
+                    <td>{t.amount}</td>
+
+                    <td className="td-center">
+                      {dc.date}
+                      <br />
+                      <span className="muted">{dc.time}</span>
+                    </td>
+
+                    {/* cart icon -> sales */}
+                    <td className="col-action">
+                      <button
+                        className="cart-btn"
+                        type="button"
+                        data-trans-id={t.trans_id}
+                        onClick={() => openSalesModal(t.trans_id, t.guest_name)}
+                        title="Sales"
+                      >
+                        <img
+                          className="row-icon"
+                          src="/assets/images/sales.png"
+                          alt="cart"
+                        />
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="td-center">
+                  <td colSpan={10} className="td-center">
                     No results
                   </td>
                 </tr>
@@ -325,7 +398,7 @@ export default function Transactions() {
         New Transaction
       </button>
 
-      {/* NEW TRANSACTION MODAL */}
+      {/* NEW TRANSACTION MODAL (React version that matches your fields) */}
       <div
         className={`tx-overlay ${txOpen ? "show" : ""}`}
         aria-hidden={txOpen ? "false" : "true"}
@@ -333,7 +406,7 @@ export default function Transactions() {
           if (e.target.classList.contains("tx-overlay")) closeTxModal();
         }}
       >
-        <div className="tx-modal" role="dialog" aria-modal="true">
+        <div className="tx-modal" role="dialog" aria-modal="true" aria-label="New Transaction">
           <button className="tx-close" type="button" onClick={closeTxModal}>
             ✕
           </button>
@@ -348,11 +421,21 @@ export default function Transactions() {
                 type="text"
                 placeholder={nextId}
                 value={txForm.trans_id}
-                onChange={(e) =>
-                  setTxForm((p) => ({ ...p, trans_id: e.target.value }))
-                }
+                onChange={(e) => setTxForm((p) => ({ ...p, trans_id: e.target.value }))}
                 required
               />
+            </label>
+
+            <label className="field">
+              <span>Status</span>
+              <select
+                value={txForm.status}
+                onChange={(e) => setTxForm((p) => ({ ...p, status: e.target.value }))}
+                required
+              >
+                <option value="paid">paid</option>
+                <option value="unpaid">unpaid</option>
+              </select>
             </label>
 
             <label className="field">
@@ -362,9 +445,7 @@ export default function Transactions() {
                 type="text"
                 placeholder="Juan Dela Cruz"
                 value={txForm.guest_name}
-                onChange={(e) =>
-                  setTxForm((p) => ({ ...p, guest_name: e.target.value }))
-                }
+                onChange={(e) => setTxForm((p) => ({ ...p, guest_name: e.target.value }))}
                 required
               />
             </label>
@@ -376,9 +457,7 @@ export default function Transactions() {
                 type="text"
                 placeholder="Jason"
                 value={txForm.username}
-                onChange={(e) =>
-                  setTxForm((p) => ({ ...p, username: e.target.value }))
-                }
+                onChange={(e) => setTxForm((p) => ({ ...p, username: e.target.value }))}
                 required
               />
             </label>
@@ -390,9 +469,7 @@ export default function Transactions() {
                 type="text"
                 placeholder="101"
                 value={txForm.room_num}
-                onChange={(e) =>
-                  setTxForm((p) => ({ ...p, room_num: e.target.value }))
-                }
+                onChange={(e) => setTxForm((p) => ({ ...p, room_num: e.target.value }))}
                 required
               />
             </label>
@@ -403,9 +480,7 @@ export default function Transactions() {
                 id="checkin"
                 type="datetime-local"
                 value={txForm.checkin}
-                onChange={(e) =>
-                  setTxForm((p) => ({ ...p, checkin: e.target.value }))
-                }
+                onChange={(e) => setTxForm((p) => ({ ...p, checkin: e.target.value }))}
                 required
               />
             </label>
@@ -416,9 +491,7 @@ export default function Transactions() {
                 id="checkout"
                 type="datetime-local"
                 value={txForm.checkout}
-                onChange={(e) =>
-                  setTxForm((p) => ({ ...p, checkout: e.target.value }))
-                }
+                onChange={(e) => setTxForm((p) => ({ ...p, checkout: e.target.value }))}
                 required
               />
             </label>
@@ -431,21 +504,23 @@ export default function Transactions() {
                 step="0.01"
                 placeholder="80"
                 value={txForm.amount}
-                onChange={(e) =>
-                  setTxForm((p) => ({ ...p, amount: e.target.value }))
-                }
+                onChange={(e) => setTxForm((p) => ({ ...p, amount: e.target.value }))}
                 required
               />
             </label>
 
             <label className="field">
               <span>Date Created</span>
+              {/* store full datetime for display (same as your HTML has date + time) */}
               <input
-                id="date_created"
-                type="date"
-                value={txForm.date_created}
+                id="date_created_dt"
+                type="datetime-local"
+                value={(txForm.date_created_dt || "").slice(0, 16)}
                 onChange={(e) =>
-                  setTxForm((p) => ({ ...p, date_created: e.target.value }))
+                  setTxForm((p) => ({
+                    ...p,
+                    date_created_dt: e.target.value ? `${e.target.value}:00` : "",
+                  }))
                 }
                 required
               />
@@ -463,7 +538,32 @@ export default function Transactions() {
         </div>
       </div>
 
-      {/* ✅ SALES MODAL COMPONENT (REACT) */}
+      {/* RECEIPT MODAL (placeholder) */}
+      {receiptOpen && (
+        <div className="receipt-overlay show" onClick={(e) => {
+          if (e.target.classList.contains("receipt-overlay")) closeReceiptModal();
+        }}>
+          <div className="receipt-card" role="dialog" aria-modal="true">
+            <button className="receipt-close" type="button" onClick={closeReceiptModal}>✕</button>
+            <h1 className="receipt-title">RECEIPT</h1>
+
+            <div style={{ padding: 12 }}>
+              <div><b>Transaction:</b> {receiptTarget?.trans_id}</div>
+              <div><b>Guest:</b> {receiptTarget?.guest_name}</div>
+              <div><b>Room:</b> {receiptTarget?.room_num}</div>
+              <div><b>Status:</b> {receiptTarget?.status}</div>
+              <div><b>Amount:</b> {receiptTarget?.amount}</div>
+            </div>
+
+            <div className="receipt-actions">
+              <button className="rbtn ghost" type="button" onClick={closeReceiptModal}>Back</button>
+              <button className="rbtn primary" type="button" onClick={closeReceiptModal}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SALES MODAL */}
       <SalesModal
         open={salesOpen}
         onClose={closeSalesModal}

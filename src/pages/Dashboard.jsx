@@ -4,10 +4,31 @@ import Chart from "chart.js/auto";
 const API_BASE = "http://localhost:5000/api";
 
 export default function Dashboard() {
+  // add this near top of Dashboard component
+const GUEST_TARGET = "/transaction";
+
+const damages = [
+  { id: 1, item: "Bed", category: "Furniture", status: "Pending", role: "guest" },
+  { id: 2, item: "Shoes", category: "Booking", status: "Pending", role: "guest" },
+  { id: 3, item: "Mug", category: "Supplies", status: "Pending", role: "employee" },
+  { id: 4, item: "Matt", category: "Furniture", status: "Resolved", role: "employee" },
+  { id: 5, item: "Bed", category: "Furniture", status: "Resolved", role: "employee" },
+];
+
+function handleDamageRowClick(role) {
+  const r = String(role || "").toLowerCase();
+  if (r === "guest") {
+    window.location.href = GUEST_TARGET;
+  } else if (r === "employee") {
+    // trigger same behavior as clicking "Employee" (open user modal)
+    document.getElementById("openUserModal")?.click();
+  }
+}
+
   const [dash, setDash] = useState({
     totalRooms: 0,
     statusCounts: [],
-    roomList: [],
+    roomList: [],    
   });
 
   // ✅ NEW inventory dashboard state
@@ -17,6 +38,8 @@ export default function Dashboard() {
       lowStockCount: 0,
       outOfStockCount: 0,
       lowStockThreshold: 5,
+      availableCount: 0,
+      threshold: 100,
     },
     lowStockItems: [],
   });
@@ -39,18 +62,20 @@ export default function Dashboard() {
 
         setDash({
           totalRooms: roomsData.totalRooms || 0,
-          statusCounts: Array.isArray(roomsData.statusCounts) ? roomsData.statusCounts : [],
+          statusCounts: Array.isArray(roomsData.statusCounts)
+            ? roomsData.statusCounts
+            : [],
           roomList: Array.isArray(roomsData.roomList) ? roomsData.roomList : [],
         });
 
         setInv({
           summary: {
-          totalItems: invSummary.totalItems || 0,
-          availableCount: invSummary.availableCount || 0,
-          lowStockCount: invSummary.lowStockCount || 0,
-          outOfStockCount: invSummary.outOfStockCount || 0,
-          threshold: invSummary.threshold ?? 100,
-        },
+            totalItems: invSummary.totalItems || 0,
+            availableCount: invSummary.availableCount || 0,
+            lowStockCount: invSummary.lowStockCount || 0,
+            outOfStockCount: invSummary.outOfStockCount || 0,
+            threshold: invSummary.threshold ?? 100,
+          },
           lowStockItems: Array.isArray(lowStockItems) ? lowStockItems : [],
         });
       } catch (e) {
@@ -61,7 +86,9 @@ export default function Dashboard() {
 
   const countsMap = useMemo(() => {
     const m = new Map();
-    dash.statusCounts.forEach((s) => m.set(s.status_name, Number(s.count) || 0));
+    dash.statusCounts.forEach((s) =>
+      m.set(s.status_name, Number(s.count) || 0)
+    );
     return m;
   }, [dash.statusCounts]);
 
@@ -69,40 +96,51 @@ export default function Dashboard() {
   const cleaning = countsMap.get("Cleaning") || 0;
   const notAvailable = countsMap.get("Not available") || 0;
 
-  const labels = dash.statusCounts.map((s) => s.status_name);
-  const values = dash.statusCounts.map((s) => Number(s.count) || 0);
+  // ✅ labels & values memoized (fixes ESLint warning)
+  const labels = useMemo(
+    () => dash.statusCounts.map((s) => s.status_name),
+    [dash.statusCounts]
+  );
 
+  const values = useMemo(
+    () => dash.statusCounts.map((s) => Number(s.count) || 0),
+    [dash.statusCounts]
+  );
+
+  // ✅ single chart effect (no duplicates)
   useEffect(() => {
     const canvas = document.getElementById("roomStatusChart");
     if (!canvas) return;
 
+    // destroy old chart first
     if (chartRef.current) {
       chartRef.current.destroy();
       chartRef.current = null;
     }
 
     const ctx = canvas.getContext("2d");
+
     chartRef.current = new Chart(ctx, {
       type: "doughnut",
       data: {
         datasets: [
-  {
-          data: values,
-          borderWidth: 0,
-          backgroundColor: labels.map((name) => {
-            const s = String(name || "").toLowerCase();
-            if (s === "available") return "#2ecc71";      // green
-            if (s === "cleaning") return "#f1c40f";       // yellow
-            return "#e74c3c";                             // red (not available)
-          }),
-          hoverBackgroundColor: labels.map((name) => {
-            const s = String(name || "").toLowerCase();
-            if (s === "available") return "#2ecc71";
-            if (s === "cleaning") return "#f1c40f";
-            return "#e74c3c";
-          }),
-        },
-      ],
+          {
+            data: values,
+            borderWidth: 0,
+            backgroundColor: labels.map((name) => {
+              const s = String(name || "").toLowerCase();
+              if (s === "available") return "#2ecc71"; // green
+              if (s === "cleaning") return "#f1c40f"; // yellow
+              return "#e74c3c"; // red (not available)
+            }),
+            hoverBackgroundColor: labels.map((name) => {
+              const s = String(name || "").toLowerCase();
+              if (s === "available") return "#2ecc71";
+              if (s === "cleaning") return "#f1c40f";
+              return "#e74c3c";
+            }),
+          },
+        ],
       },
       options: {
         responsive: true,
@@ -111,13 +149,14 @@ export default function Dashboard() {
       },
     });
 
+    // cleanup on unmount / update
     return () => {
       if (chartRef.current) {
         chartRef.current.destroy();
         chartRef.current = null;
       }
     };
-  }, [labels.join("|"), values.join("|")]);
+  }, [labels, values]);
 
   function statusToDotClass(statusName) {
     const s = String(statusName || "").toLowerCase();
@@ -130,48 +169,45 @@ export default function Dashboard() {
     <>
       {/* Summary Cards */}
       <section className="summary-cards">
+        {/* ===== Row 1: ROOM STATUS ===== */}
+        <div className="cards-row">
+          <a href="/room" className="card">
+            <p>Room Available</p>
+            <h3>{available}</h3>
+          </a>
 
-  {/* ===== Row 1: ROOM STATUS ===== */}
-  <div className="cards-row">
-    <a href="/room" className="card">
-      <p>Room Available</p>
-      <h3>{available}</h3>
-    </a>
+          <a href="/room" className="card">
+            <p>Cleaning</p>
+            <h3>{cleaning}</h3>
+          </a>
 
-    <a href="/room" className="card">
-      <p>Cleaning</p>
-      <h3>{cleaning}</h3>
-    </a>
+          <a href="/room" className="card">
+            <p>Not available</p>
+            <h3>{notAvailable}</h3>
+          </a>
+        </div>
 
-    <a href="/room" className="card">
-      <p>Not available</p>
-      <h3>{notAvailable}</h3>
-    </a>
-  </div>
+        {/* Divider */}
+        <div className="cards-divider" />
 
-  {/* Divider */}
-  <div className="cards-divider" />
+        {/* ===== Row 2: INVENTORY STATUS ===== */}
+        <div className="cards-row">
+          <a href="/inventory" className="card">
+            <p>Inventory Available</p>
+            <h3>{inv.summary.availableCount}</h3>
+          </a>
 
-  {/* ===== Row 2: INVENTORY STATUS ===== */}
-  <div className="cards-row">
-    <a href="/inventory" className="card">
-      <p>Inventory Available</p>
-      <h3>{inv.summary.availableCount}</h3>
-    </a>
+          <a href="/inventory" className="card">
+            <p>Low Stock</p>
+            <h3>{inv.summary.lowStockCount}</h3>
+          </a>
 
-    <a href="/inventory" className="card">
-      <p>Low Stock</p>
-      <h3>{inv.summary.lowStockCount}</h3>
-    </a>
-
-    <a href="/inventory" className="card">
-      <p>Out of Stock</p>
-      <h3>{inv.summary.outOfStockCount}</h3>
-    </a>
-  </div>
-
-</section>
-
+          <a href="/inventory" className="card">
+            <p>Out of Stock</p>
+            <h3>{inv.summary.outOfStockCount}</h3>
+          </a>
+        </div>
+      </section>
 
       {/* Main Dashboard */}
       <section className="dashboard-main">
@@ -200,7 +236,10 @@ export default function Dashboard() {
             <div className="room-bottom">
               <ul className="room-list">
                 {dash.roomList.map((r) => (
-                  <li key={r.room_id} data-status={String(r.status_name || "").toLowerCase()}>
+                  <li
+                    key={r.room_id}
+                    data-status={String(r.status_name || "").toLowerCase()}
+                  >
                     <span className={`dot ${statusToDotClass(r.status_name)}`} />
                     {r.room_number}{" "}
                     <small>
@@ -217,10 +256,7 @@ export default function Dashboard() {
           {/* ✅ CONNECTED Low Stock Items */}
           <a href="/inventory" className="card-link">
             <div className="table-card">
-              <h3>
-              Low Stock Item
-            </h3>
-
+              <h3>Low Stock Item</h3>
 
               <table>
                 <thead>
@@ -253,61 +289,54 @@ export default function Dashboard() {
           </a>
 
           {/* Damages still placeholder (next to connect) */}
-          <div className="table-card">
-            <h3>Damages</h3>
-            <table>
-              <thead>
-                <tr>
-                  <th>Item</th>
-                  <th>Category</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Bed</td>
-                  <td>Furniture</td>
-                  <td>Pending</td>
-                  <td>
-                    <button>guest</button>
-                  </td>
-                </tr>
-                <tr>
-                  <td>Shoes</td>
-                  <td>Booking</td>
-                  <td>Pending</td>
-                  <td>
-                    <button>guest</button>
-                  </td>
-                </tr>
-                <tr>
-                  <td>Mug</td>
-                  <td>Supplies</td>
-                  <td>Pending</td>
-                  <td>
-                    <button>employee</button>
-                  </td>
-                </tr>
-                <tr>
-                  <td>Matt</td>
-                  <td>Furniture</td>
-                  <td>Resolved</td>
-                  <td>
-                    <button>employee</button>
-                  </td>
-                </tr>
-                <tr>
-                  <td>Bed</td>
-                  <td>Furniture</td>
-                  <td>Resolved</td>
-                  <td>
-                    <button>employee</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+<a href="/transaction" className="card-link">
+  <div className="table-card">
+    <h3>Damages</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Category</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {damages.map((d) => (
+          <tr
+            key={d.id}
+            className="damage-row"
+            data-role={d.role}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation(); // para dili mo trigger ang card-link
+              handleDamageRowClick(d.role);
+            }}
+            style={{ cursor: "pointer" }}
+          >
+            <td>{d.item}</td>
+            <td>{d.category}</td>
+            <td>{d.status}</td>
+            <td>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+              >
+                {d.role}
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</a>
+
+
         </div>
       </section>
     </>
