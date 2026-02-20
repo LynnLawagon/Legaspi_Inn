@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import SalesModal from "../components/SalesModal";
+import ReceiptModal from "../components/ReceiptModal";
 
 const STORAGE_KEY = "transactions";
 const SALES_KEY = "purchased_by_trans";
@@ -311,7 +312,8 @@ export default function Transactions() {
                 const status = (t.status || "unpaid").toLowerCase();
 
                 return (
-                  <tr key={t.trans_id}>
+                        <tr key={t.trans_id} className={`tx-row ${status}`}>
+
                     {/* receipt icon */}
                     <td className="col-icon">
                       <button
@@ -398,7 +400,14 @@ export default function Transactions() {
         New Transaction
       </button>
 
-      {/* NEW TRANSACTION MODAL (React version that matches your fields) */}
+ 
+       {/* floating button */}
+      <button className="new-tx-btn" type="button" onClick={openTxModal}>
+        <span className="plus">＋</span>
+        New Transaction
+      </button>
+
+      {/* NEW TRANSACTION MODAL */}
       <div
         className={`tx-overlay ${txOpen ? "show" : ""}`}
         aria-hidden={txOpen ? "false" : "true"}
@@ -414,119 +423,120 @@ export default function Transactions() {
           <h2 className="tx-title">New Transaction</h2>
 
           <form id="txForm" onSubmit={handleTxSubmit}>
-            <label className="field">
-              <span>Transaction ID</span>
-              <input
-                id="trans_id"
-                type="text"
-                placeholder={nextId}
-                value={txForm.trans_id}
-                onChange={(e) => setTxForm((p) => ({ ...p, trans_id: e.target.value }))}
-                required
-              />
-            </label>
+            <div className="tx-grid">
+              <label className="field">
+                <span>Transaction ID</span>
+                <input
+                  id="trans_id"
+                  type="text"
+                  placeholder={nextId}
+                  value={txForm.trans_id}
+                  onChange={(e) => setTxForm((p) => ({ ...p, trans_id: e.target.value }))}
+                  required
+                />
+              </label>
 
-            <label className="field">
-              <span>Status</span>
-              <select
-                value={txForm.status}
-                onChange={(e) => setTxForm((p) => ({ ...p, status: e.target.value }))}
-                required
-              >
-                <option value="paid">paid</option>
-                <option value="unpaid">unpaid</option>
-              </select>
-            </label>
+              <label className="field">
+                <span>Status</span>
+                <select
+                  value={txForm.status}
+                  onChange={(e) => setTxForm((p) => ({ ...p, status: e.target.value }))}
+                  required
+                >
+                  <option value="paid">paid</option>
+                  <option value="unpaid">unpaid</option>
+                </select>
+              </label>
 
-            <label className="field">
-              <span>Guest Name</span>
-              <input
-                id="guest_name"
-                type="text"
-                placeholder="Juan Dela Cruz"
-                value={txForm.guest_name}
-                onChange={(e) => setTxForm((p) => ({ ...p, guest_name: e.target.value }))}
-                required
-              />
-            </label>
+              <label className="field">
+                <span>Guest Name</span>
+                <input
+                  id="guest_name"
+                  type="text"
+                  placeholder="Juan Dela Cruz"
+                  value={txForm.guest_name}
+                  onChange={(e) => setTxForm((p) => ({ ...p, guest_name: e.target.value }))}
+                  required
+                />
+              </label>
 
-            <label className="field">
-              <span>Username</span>
-              <input
-                id="username"
-                type="text"
-                placeholder="Jason"
-                value={txForm.username}
-                onChange={(e) => setTxForm((p) => ({ ...p, username: e.target.value }))}
-                required
-              />
-            </label>
+              <label className="field">
+                <span>Username</span>
+                <input
+                  id="username"
+                  type="text"
+                  placeholder="Jason"
+                  value={txForm.username}
+                  onChange={(e) => setTxForm((p) => ({ ...p, username: e.target.value }))}
+                  required
+                />
+              </label>
 
-            <label className="field">
-              <span>Room #</span>
-              <input
-                id="room_num"
-                type="text"
-                placeholder="101"
-                value={txForm.room_num}
-                onChange={(e) => setTxForm((p) => ({ ...p, room_num: e.target.value }))}
-                required
-              />
-            </label>
+              <label className="field">
+                <span>Room #</span>
+                <input
+                  id="room_num"
+                  type="text"
+                  placeholder="101"
+                  value={txForm.room_num}
+                  onChange={(e) => setTxForm((p) => ({ ...p, room_num: e.target.value }))}
+                  required
+                />
+              </label>
 
-            <label className="field">
-              <span>Check-in</span>
-              <input
-                id="checkin"
-                type="datetime-local"
-                value={txForm.checkin}
-                onChange={(e) => setTxForm((p) => ({ ...p, checkin: e.target.value }))}
-                required
-              />
-            </label>
+              <label className="field">
+                <span>Check-in</span>
+                <input
+                  id="checkin"
+                  type="datetime-local"
+                  value={txForm.checkin}
+                  onChange={(e) => setTxForm((p) => ({ ...p, checkin: e.target.value }))}
+                  required
+                />
+              </label>
 
-            <label className="field">
-              <span>Check-out</span>
-              <input
-                id="checkout"
-                type="datetime-local"
-                value={txForm.checkout}
-                onChange={(e) => setTxForm((p) => ({ ...p, checkout: e.target.value }))}
-                required
-              />
-            </label>
+              <label className="field">
+                <span>Check-out</span>
+                <input
+                  id="checkout"
+                  type="datetime-local"
+                  value={txForm.checkout}
+                  onChange={(e) => setTxForm((p) => ({ ...p, checkout: e.target.value }))}
+                  required
+                />
+              </label>
 
-            <label className="field">
-              <span>Amount</span>
-              <input
-                id="amount"
-                type="number"
-                step="0.01"
-                placeholder="80"
-                value={txForm.amount}
-                onChange={(e) => setTxForm((p) => ({ ...p, amount: e.target.value }))}
-                required
-              />
-            </label>
+              <label className="field">
+                <span>Amount</span>
+                <input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  placeholder="80"
+                  value={txForm.amount}
+                  onChange={(e) => setTxForm((p) => ({ ...p, amount: e.target.value }))}
+                  required
+                />
+              </label>
 
-            <label className="field">
-              <span>Date Created</span>
-              {/* store full datetime for display (same as your HTML has date + time) */}
-              <input
-                id="date_created_dt"
-                type="datetime-local"
-                value={(txForm.date_created_dt || "").slice(0, 16)}
-                onChange={(e) =>
-                  setTxForm((p) => ({
-                    ...p,
-                    date_created_dt: e.target.value ? `${e.target.value}:00` : "",
-                  }))
-                }
-                required
-              />
-            </label>
+              <label className="field">
+                <span>Date Created</span>
+                <input
+                  id="date_created_dt"
+                  type="datetime-local"
+                  value={(txForm.date_created_dt || "").slice(0, 16)}
+                  onChange={(e) =>
+                    setTxForm((p) => ({
+                      ...p,
+                      date_created_dt: e.target.value ? `${e.target.value}:00` : "",
+                    }))
+                  }
+                  required
+                />
+              </label>
+            </div>
 
-            <div className="modal-actions">
+            <div className="modal-actions tx-actions">
               <button className="btn secondary" type="button" onClick={closeTxModal}>
                 Cancel
               </button>
@@ -538,30 +548,13 @@ export default function Transactions() {
         </div>
       </div>
 
-      {/* RECEIPT MODAL (placeholder) */}
-      {receiptOpen && (
-        <div className="receipt-overlay show" onClick={(e) => {
-          if (e.target.classList.contains("receipt-overlay")) closeReceiptModal();
-        }}>
-          <div className="receipt-card" role="dialog" aria-modal="true">
-            <button className="receipt-close" type="button" onClick={closeReceiptModal}>✕</button>
-            <h1 className="receipt-title">RECEIPT</h1>
-
-            <div style={{ padding: 12 }}>
-              <div><b>Transaction:</b> {receiptTarget?.trans_id}</div>
-              <div><b>Guest:</b> {receiptTarget?.guest_name}</div>
-              <div><b>Room:</b> {receiptTarget?.room_num}</div>
-              <div><b>Status:</b> {receiptTarget?.status}</div>
-              <div><b>Amount:</b> {receiptTarget?.amount}</div>
-            </div>
-
-            <div className="receipt-actions">
-              <button className="rbtn ghost" type="button" onClick={closeReceiptModal}>Back</button>
-              <button className="rbtn primary" type="button" onClick={closeReceiptModal}>Confirm</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* RECEIPT MODAL */}
+      <ReceiptModal
+        open={receiptOpen}
+        onClose={closeReceiptModal}
+        tx={receiptTarget}
+        processedBy={receiptTarget?.username || ""}
+      />
 
       {/* SALES MODAL */}
       <SalesModal

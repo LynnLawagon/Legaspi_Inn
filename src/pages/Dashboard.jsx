@@ -1,37 +1,60 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Chart from "chart.js/auto";
+import EmployeeDamageModal from "../components/EmployeeDamageModal";
 
 const API_BASE = "http://localhost:5000/api";
 
 export default function Dashboard() {
-  // add this near top of Dashboard component
-const GUEST_TARGET = "/transaction";
+  const GUEST_TARGET = "/transactions";
 
-const damages = [
-  { id: 1, item: "Bed", category: "Furniture", status: "Pending", role: "guest" },
-  { id: 2, item: "Shoes", category: "Booking", status: "Pending", role: "guest" },
-  { id: 3, item: "Mug", category: "Supplies", status: "Pending", role: "employee" },
-  { id: 4, item: "Matt", category: "Furniture", status: "Resolved", role: "employee" },
-  { id: 5, item: "Bed", category: "Furniture", status: "Resolved", role: "employee" },
-];
+  // ✅ Employee Damage Modal state
+  const [edmOpen, setEdmOpen] = useState(false);
+  const [edmUser, setEdmUser] = useState(null);
+  const [edmRows, setEdmRows] = useState([]);
 
-function handleDamageRowClick(role) {
-  const r = String(role || "").toLowerCase();
-  if (r === "guest") {
-    window.location.href = GUEST_TARGET;
-  } else if (r === "employee") {
-    // trigger same behavior as clicking "Employee" (open user modal)
-    document.getElementById("openUserModal")?.click();
-  }
-}
+  // ✅ placeholder damages list (add employee_id / employee_name for employee rows)
+  const damages = [
+    { id: 1, item: "Bed", category: "Furniture", status: "Pending", role: "guest" },
+    { id: 2, item: "Sheets", category: "Bedding", status: "Pending", role: "guest" },
 
+    // ✅ employee rows with specific employee
+    {
+      id: 3,
+      item: "Mug",
+      category: "Supplies",
+      status: "Pending",
+      role: "employee",
+      employee_id: "U0003",
+      employee_name: "Aira Dela Cruz",
+    },
+    {
+      id: 4,
+      item: "Walls",
+      category: "Structure",
+      status: "Resolved",
+      role: "employee",
+      employee_id: "U0001",
+      employee_name: "Employee",
+    },
+    {
+      id: 5,
+      item: "Bed",
+      category: "Furniture",
+      status: "Resolved",
+      role: "employee",
+      employee_id: "U0002",
+      employee_name: "Mark Santos",
+    },
+  ];
+
+  // ✅ dashboard room state
   const [dash, setDash] = useState({
     totalRooms: 0,
     statusCounts: [],
-    roomList: [],    
+    roomList: [],
   });
 
-  // ✅ NEW inventory dashboard state
+  // ✅ inventory dashboard state
   const [inv, setInv] = useState({
     summary: {
       totalItems: 0,
@@ -86,9 +109,7 @@ function handleDamageRowClick(role) {
 
   const countsMap = useMemo(() => {
     const m = new Map();
-    dash.statusCounts.forEach((s) =>
-      m.set(s.status_name, Number(s.count) || 0)
-    );
+    dash.statusCounts.forEach((s) => m.set(s.status_name, Number(s.count) || 0));
     return m;
   }, [dash.statusCounts]);
 
@@ -96,7 +117,6 @@ function handleDamageRowClick(role) {
   const cleaning = countsMap.get("Cleaning") || 0;
   const notAvailable = countsMap.get("Not available") || 0;
 
-  // ✅ labels & values memoized (fixes ESLint warning)
   const labels = useMemo(
     () => dash.statusCounts.map((s) => s.status_name),
     [dash.statusCounts]
@@ -107,12 +127,11 @@ function handleDamageRowClick(role) {
     [dash.statusCounts]
   );
 
-  // ✅ single chart effect (no duplicates)
+  // ✅ chart effect (no duplicates)
   useEffect(() => {
     const canvas = document.getElementById("roomStatusChart");
     if (!canvas) return;
 
-    // destroy old chart first
     if (chartRef.current) {
       chartRef.current.destroy();
       chartRef.current = null;
@@ -129,9 +148,9 @@ function handleDamageRowClick(role) {
             borderWidth: 0,
             backgroundColor: labels.map((name) => {
               const s = String(name || "").toLowerCase();
-              if (s === "available") return "#2ecc71"; // green
-              if (s === "cleaning") return "#f1c40f"; // yellow
-              return "#e74c3c"; // red (not available)
+              if (s === "available") return "#2ecc71";
+              if (s === "cleaning") return "#f1c40f";
+              return "#e74c3c";
             }),
             hoverBackgroundColor: labels.map((name) => {
               const s = String(name || "").toLowerCase();
@@ -149,7 +168,6 @@ function handleDamageRowClick(role) {
       },
     });
 
-    // cleanup on unmount / update
     return () => {
       if (chartRef.current) {
         chartRef.current.destroy();
@@ -165,11 +183,62 @@ function handleDamageRowClick(role) {
     return "red";
   }
 
+  // ✅ OPEN ACTION: guest redirect / employee open modal
+  async function handleDamageRowClick(damageRow) {
+    const r = String(damageRow?.role || "").toLowerCase();
+
+    if (r === "guest") {
+      window.location.href = GUEST_TARGET;
+      return;
+    }
+
+    if (r === "employee") {
+      const user = {
+        user_id: damageRow?.employee_id ?? "U0001",
+        name: damageRow?.employee_name ?? "Employee",
+      };
+
+      setEdmUser(user);
+
+      try {
+        // ✅ If naa na kay backend route, use this:
+        // const res = await fetch(`${API_BASE}/employee-damages?user_id=${encodeURIComponent(user.user_id)}`);
+        // const rows = await res.json();
+        // setEdmRows(Array.isArray(rows) ? rows : []);
+
+        // ✅ Placeholder rows (demo)
+        setEdmRows([
+          {
+            edam_id: 1,
+            inventory_id: 12,
+            inventory_name: damageRow?.item ?? "Inventory",
+            date_reported: "2026-02-20",
+            status_id: 1,
+            cost_to_hotel: 150,
+          },
+          {
+            edam_id: 2,
+            inventory_id: 15,
+            inventory_name: "Another Item",
+            date_reported: "2026-02-19",
+            status_id: 2,
+            cost_to_hotel: 500,
+          },
+        ]);
+      } catch (e) {
+        console.error("Load employee damages failed:", e);
+        setEdmRows([]);
+      }
+
+      setEdmOpen(true);
+    }
+  }
+
   return (
     <>
       {/* Summary Cards */}
       <section className="summary-cards">
-        {/* ===== Row 1: ROOM STATUS ===== */}
+        {/* Row 1: ROOM STATUS */}
         <div className="cards-row">
           <a href="/room" className="card">
             <p>Room Available</p>
@@ -187,10 +256,9 @@ function handleDamageRowClick(role) {
           </a>
         </div>
 
-        {/* Divider */}
         <div className="cards-divider" />
 
-        {/* ===== Row 2: INVENTORY STATUS ===== */}
+        {/* Row 2: INVENTORY STATUS */}
         <div className="cards-row">
           <a href="/inventory" className="card">
             <p>Inventory Available</p>
@@ -253,7 +321,7 @@ function handleDamageRowClick(role) {
         </a>
 
         <div className="tables-section">
-          {/* ✅ CONNECTED Low Stock Items */}
+          {/* Low Stock Items */}
           <a href="/inventory" className="card-link">
             <div className="table-card">
               <h3>Low Stock Item</h3>
@@ -288,57 +356,59 @@ function handleDamageRowClick(role) {
             </div>
           </a>
 
-          {/* Damages still placeholder (next to connect) */}
-<a href="/transaction" className="card-link">
-  <div className="table-card">
-    <h3>Damages</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Item</th>
-          <th>Category</th>
-          <th>Status</th>
-          <th></th>
-        </tr>
-      </thead>
+          {/* ✅ Damages (NO <a> wrapper) */}
+          <div className="table-card">
+            <h3>Damages</h3>
 
-      <tbody>
-        {damages.map((d) => (
-          <tr
-            key={d.id}
-            className="damage-row"
-            data-role={d.role}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation(); // para dili mo trigger ang card-link
-              handleDamageRowClick(d.role);
-            }}
-            style={{ cursor: "pointer" }}
-          >
-            <td>{d.item}</td>
-            <td>{d.category}</td>
-            <td>{d.status}</td>
-            <td>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-              >
-                {d.role}
-              </button>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-</a>
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Category</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
 
-
+              <tbody>
+                {damages.map((d) => (
+                  <tr
+                    key={d.id}
+                    className="damage-row"
+                    data-role={d.role}
+                    onClick={() => handleDamageRowClick(d)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <td>{d.item}</td>
+                    <td>{d.category}</td>
+                    <td>{d.status}</td>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleDamageRowClick(d);
+                        }}
+                      >
+                        {d.role}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
+
+      {/* ✅ Employee Damage Modal */}
+      <EmployeeDamageModal
+        open={edmOpen}
+        onClose={() => setEdmOpen(false)}
+        user={edmUser}
+        damageRows={edmRows}
+      />
     </>
   );
 }
