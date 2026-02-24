@@ -44,7 +44,7 @@ router.get("/rooms", async (req, res) => {
         FROM rooms r
         LEFT JOIN room_status rs ON rs.room_status_id = r.room_status_id
         LEFT JOIN room_type rt ON rt.room_type_id = r.room_type_id
-        ORDER BY r.room_id DESC
+        ORDER BY r.room_id ASC
         LIMIT 50
       `);
       roomList = Array.isArray(rows) ? rows : [];
