@@ -1,9 +1,10 @@
+// index.js (server.js)
 require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
-const pool = require("./db");
 
-const authRoutes = require("./routes/auth");
+const authRoutes = require("./routes/auth"); // ✅ add this
 const dashboardRoutes = require("./routes/dashboard");
 const roomRoutes = require("./routes/rooms");
 const guestRoutes = require("./routes/guests");
@@ -13,40 +14,25 @@ const damageRoutes = require("./routes/damages");
 
 const app = express();
 
-app.use(cors({ origin: "http://localhost:3000" }));
+app.use(cors({
+  origin: "http://localhost:3000",
+  credentials: true,
+}));
+
 app.use(express.json());
 
+// ✅ mount auth
 app.use("/api/auth", authRoutes);
+
+// other api routes
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/rooms", roomRoutes);
 app.use("/api/guests", guestRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/transactions", transactionRoutes);
-app.use("/api/damages", damageRoutes); // ✅ only once
+app.use("/api/damages", damageRoutes); // ✅ use the variable, not require() again
 
-// ✅ DB health check
-app.get("/api/health", async (req, res) => {
-  try {
-    await pool.query("SELECT 1");
-    res.json({ ok: true, db: "connected" });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, db: "failed", error: e.code || e.message });
-  }
-});
+app.get("/api/health", (req, res) => res.json({ ok: true }));
 
-const PORT = Number(process.env.PORT || 5000);
-
-// ✅ handles EADDRINUSE nicely
-const server = app.listen(PORT, () => {
-  console.log(`API running on http://localhost:${PORT}`);
-});
-
-server.on("error", (err) => {
-  if (err.code === "EADDRINUSE") {
-    console.error(`Port ${PORT} is already in use. Close the other server or change PORT.`);
-  } else {
-    console.error(err);
-  }
-  process.exit(1);
-});
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`API running on http://localhost:${PORT}`));

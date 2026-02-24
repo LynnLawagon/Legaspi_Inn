@@ -4,31 +4,33 @@ const router = express.Router();
 
 router.get("/", async (req, res) => {
   try {
-    const [rows] = await pool.query(`
+    const limit = Number(req.query.limit || 10);
+
+    const [rows] = await pool.query(
+      `
       SELECT
         gd.gdam_id,
-        i.item_name AS item,
-        c.category_name AS category,
-        ds.status_name AS status,
-        gd.charge_amount AS charge,
+        i.item_name AS item_name,
+        ds.status_name AS damage_status,
+        gd.charge_amount,
         g.guest_name,
-        r.room_number,
-        gd.date_reported
+        r.room_number
       FROM guest_damage gd
       LEFT JOIN inventory i ON i.inv_id = gd.inv_id
-      LEFT JOIN inventory_category c ON c.category_id = i.category_id
       LEFT JOIN damage_status ds ON ds.damage_status_id = gd.damage_status_id
       LEFT JOIN transactions t ON t.trans_id = gd.trans_id
       LEFT JOIN guests g ON g.guest_id = t.guest_id
       LEFT JOIN rooms r ON r.room_id = t.room_id
       ORDER BY gd.gdam_id DESC
-      LIMIT 10
-    `);
+      LIMIT ?
+      `,
+      [limit]
+    );
 
     res.json(Array.isArray(rows) ? rows : []);
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: "Failed to fetch damages", error: e.code || e.message });
+    console.error("damages list error:", e);
+    res.status(500).json({ message: "Failed to fetch damages" });
   }
 });
 

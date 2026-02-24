@@ -1,3 +1,4 @@
+// routes/transactions.js
 const express = require("express");
 const pool = require("../db");
 const router = express.Router();
@@ -5,18 +6,29 @@ const router = express.Router();
 // lookups for New Transaction modal
 router.get("/lookups", async (req, res) => {
   try {
-    const [guests] = await pool.query(`SELECT guest_id, guest_name FROM guests ORDER BY guest_name`);
-    const [users] = await pool.query(`SELECT user_id, username, full_name FROM users ORDER BY user_id DESC`);
+    const [guests] = await pool.query(
+      `SELECT guest_id, guest_name
+       FROM guests
+       ORDER BY guest_name`
+    );
+
+    // ✅ users table has NO full_name, so remove it
+    const [users] = await pool.query(
+      `SELECT user_id, username
+       FROM users
+       ORDER BY user_id DESC`
+    );
+
     const [rooms] = await pool.query(`
       SELECT r.room_id, r.room_number, rt.type_name, rt.base_rate
       FROM rooms r
-      JOIN room_type rt ON rt.room_type_id = r.room_type_id
+      LEFT JOIN room_type rt ON rt.room_type_id = r.room_type_id
       ORDER BY CAST(SUBSTRING(r.room_number, 2) AS UNSIGNED), r.room_id
     `);
 
     res.json({ guests, users, rooms });
   } catch (e) {
-    console.error(e);
+    console.error("transactions/lookups error:", e);
     res.status(500).json({ message: "Failed to load transaction lookups" });
   }
 });
@@ -33,7 +45,8 @@ router.get("/", async (req, res) => {
         t.checkin, t.checkout,
         t.actual_rate_charged,
         t.date_created,
-        t.trans_status_id, ts.status_name AS trans_status_name
+        t.trans_status_id,
+        ts.status_name AS trans_status_name
       FROM transactions t
       LEFT JOIN guests g ON g.guest_id = t.guest_id
       LEFT JOIN users u ON u.user_id = t.user_id
@@ -44,7 +57,7 @@ router.get("/", async (req, res) => {
 
     res.json(Array.isArray(rows) ? rows : []);
   } catch (e) {
-    console.error(e);
+    console.error("transactions list error:", e);
     res.status(500).json({ message: "Failed to fetch transactions" });
   }
 });
@@ -75,7 +88,7 @@ router.post("/", async (req, res) => {
 
     res.status(201).json({ trans_id: r.insertId });
   } catch (e) {
-    console.error(e);
+    console.error("transactions create error:", e);
     res.status(500).json({ message: "Failed to create transaction" });
   }
 });
@@ -104,7 +117,7 @@ router.put("/:id", async (req, res) => {
     if (r.affectedRows === 0) return res.status(404).json({ message: "Transaction not found" });
     res.json({ updated: r.affectedRows });
   } catch (e) {
-    console.error(e);
+    console.error("transactions update error:", e);
     res.status(500).json({ message: "Failed to update transaction" });
   }
 });
@@ -116,7 +129,7 @@ router.delete("/:id", async (req, res) => {
     if (r.affectedRows === 0) return res.status(404).json({ message: "Transaction not found" });
     res.json({ deleted: r.affectedRows });
   } catch (e) {
-    console.error(e);
+    console.error("transactions delete error:", e);
     res.status(500).json({ message: "Failed to delete transaction" });
   }
 });
