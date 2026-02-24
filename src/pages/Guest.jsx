@@ -19,29 +19,33 @@ export default function Guest() {
         fetch(`${API_BASE}/guests/lookups`),
       ]);
 
-      if (!gRes.ok) throw new Error("Failed to load guests");
-      if (!lRes.ok) throw new Error("Failed to load guest lookups");
-
-      const g = await gRes.json();
-      const l = await lRes.json();
+      const g = await gRes.json().catch(() => []);
+      const l = await lRes.json().catch(() => ({}));
 
       setGuests(Array.isArray(g) ? g : []);
       setLookups({ genders: Array.isArray(l.genders) ? l.genders : [] });
     } catch (e) {
       console.error(e);
-      alert(e.message || "Failed to load guest data");
+      alert("Failed to load guests");
+      setGuests([]);
+      setLookups({ genders: [] });
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => {
+    loadAll();
+  }, []);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return guests;
+
     return guests.filter((x) =>
-      `${x.name} ${x.contact} ${x.gender_name} ${x.dob}`.toLowerCase().includes(s)
+      `${x.guest_name} ${x.contact} ${x.age} ${x.gender_name} ${x.dob}`
+        .toLowerCase()
+        .includes(s)
     );
   }, [guests, q]);
 
@@ -63,17 +67,27 @@ export default function Guest() {
   }
 
   useEffect(() => {
-    function onKey(e) { if (e.key === "Escape") closeMenu(); }
+    function onKey(e) {
+      if (e.key === "Escape") closeMenu();
+    }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   async function createGuest() {
-    const name = window.prompt("Guest Name:");
-    if (!name?.trim()) return;
+    const guest_name = window.prompt("Guest Name:");
+    if (!guest_name?.trim()) return;
 
     const contact = window.prompt("Contact (e.g. 09xx...):");
     if (!contact?.trim()) return;
+
+    const ageStr = window.prompt("Age:", "18");
+    if (ageStr == null) return;
+    const age = Number(ageStr);
+    if (!Number.isFinite(age) || age < 0) {
+      alert("Age must be a valid number.");
+      return;
+    }
 
     const gender_id = pickGender();
     if (!gender_id) return;
@@ -85,8 +99,9 @@ export default function Guest() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: name.trim(),
+        guest_name: guest_name.trim(),
         contact: contact.trim(),
+        age,
         gender_id: Number(gender_id),
         dob,
       }),
@@ -101,11 +116,19 @@ export default function Guest() {
   }
 
   async function editGuest(g) {
-    const name = window.prompt("Guest Name:", g.name);
-    if (!name?.trim()) return;
+    const guest_name = window.prompt("Guest Name:", g.guest_name);
+    if (!guest_name?.trim()) return;
 
     const contact = window.prompt("Contact:", g.contact);
     if (!contact?.trim()) return;
+
+    const ageStr = window.prompt("Age:", String(g.age ?? ""));
+    if (ageStr == null) return;
+    const age = Number(ageStr);
+    if (!Number.isFinite(age) || age < 0) {
+      alert("Age must be a valid number.");
+      return;
+    }
 
     const gender_id = pickGender(String(g.gender_id));
     if (!gender_id) return;
@@ -117,8 +140,9 @@ export default function Guest() {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: name.trim(),
+        guest_name: guest_name.trim(),
         contact: contact.trim(),
+        age,
         gender_id: Number(gender_id),
         dob,
       }),
@@ -133,7 +157,7 @@ export default function Guest() {
   }
 
   async function deleteGuest(g) {
-    if (!window.confirm(`Delete "${g.name}"?`)) return;
+    if (!window.confirm(`Delete "${g.guest_name}"?`)) return;
 
     const res = await fetch(`${API_BASE}/guests/${g.guest_id}`, { method: "DELETE" });
 
@@ -148,21 +172,63 @@ export default function Guest() {
   return (
     <>
       {menu.open && (
-        <div onClick={closeMenu} style={{ position: "fixed", inset: 0, background: "transparent", zIndex: 99998 }} />
+        <div
+          onClick={closeMenu}
+          style={{ position: "fixed", inset: 0, background: "transparent", zIndex: 99998 }}
+        />
       )}
 
       {menu.open && (
-        <div style={{
-          position: "fixed", top: menu.top, left: menu.left, background: "#fff",
-          borderRadius: 16, boxShadow: "0 18px 40px rgba(0,0,0,0.18)", padding: 8,
-          zIndex: 99999, minWidth: 160,
-        }}>
-          <button onClick={() => { const g = selectedRef.current; closeMenu(); if (g) editGuest(g); }}
-            style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", cursor: "pointer", borderRadius: 12 }}>
+        <div
+          style={{
+            position: "fixed",
+            top: menu.top,
+            left: menu.left,
+            background: "#fff",
+            borderRadius: 16,
+            boxShadow: "0 18px 40px rgba(0,0,0,0.18)",
+            padding: 8,
+            zIndex: 99999,
+            minWidth: 160,
+          }}
+        >
+          <button
+            onClick={() => {
+              const g = selectedRef.current;
+              closeMenu();
+              if (g) editGuest(g);
+            }}
+            style={{
+              display: "block",
+              width: "100%",
+              textAlign: "left",
+              padding: "10px 14px",
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              borderRadius: 12,
+            }}
+          >
             Edit
           </button>
-          <button onClick={() => { const g = selectedRef.current; closeMenu(); if (g) deleteGuest(g); }}
-            style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "transparent", cursor: "pointer", borderRadius: 12, color: "#c0392b" }}>
+          <button
+            onClick={() => {
+              const g = selectedRef.current;
+              closeMenu();
+              if (g) deleteGuest(g);
+            }}
+            style={{
+              display: "block",
+              width: "100%",
+              textAlign: "left",
+              padding: "10px 14px",
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              borderRadius: 12,
+              color: "#c0392b",
+            }}
+          >
             Delete
           </button>
         </div>
@@ -191,6 +257,7 @@ export default function Guest() {
               <tr>
                 <th>Name</th>
                 <th>Contact</th>
+                <th>Age</th>
                 <th>Gender</th>
                 <th>Date of Birth</th>
                 <th className="col-actions">...</th>
@@ -200,23 +267,32 @@ export default function Guest() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: "center", padding: 18, opacity: 0.7 }}>Loading...</td>
+                  <td colSpan={6} style={{ textAlign: "center", padding: 18, opacity: 0.7 }}>
+                    Loading...
+                  </td>
                 </tr>
               ) : (
                 <>
                   {filtered.map((g) => (
                     <tr key={g.guest_id}>
-                      <td>{g.name}</td>
+                      <td>{g.guest_name}</td>
                       <td>{g.contact}</td>
+                      <td>{g.age}</td>
                       <td>{g.gender_name}</td>
                       <td>{g.dob}</td>
                       <td className="td-action">
                         <button
                           onClick={(e) => openMenuForGuest(e, g)}
                           style={{
-                            background: "transparent", border: "none", fontSize: "22px",
-                            cursor: "pointer", fontWeight: "900", lineHeight: "1",
-                            padding: "4px 10px", borderRadius: 10, color: "#2C0735",
+                            background: "transparent",
+                            border: "none",
+                            fontSize: "22px",
+                            cursor: "pointer",
+                            fontWeight: "900",
+                            lineHeight: "1",
+                            padding: "4px 10px",
+                            borderRadius: 10,
+                            color: "#2C0735",
                           }}
                           title="More"
                         >
@@ -228,7 +304,7 @@ export default function Guest() {
 
                   {filtered.length === 0 && (
                     <tr>
-                      <td colSpan={5} style={{ textAlign: "center", padding: 18, opacity: 0.7 }}>
+                      <td colSpan={6} style={{ textAlign: "center", padding: 18, opacity: 0.7 }}>
                         No guests found
                       </td>
                     </tr>

@@ -1,148 +1,74 @@
 const express = require("express");
-const router = express.Router();
 const pool = require("../db");
+const router = express.Router();
 
-async function getNextGuestId(conn) {
-  const [rows] = await conn.query(
-    "SELECT COALESCE(MAX(guest_id), 0) + 1 AS nextId FROM guests"
-  );
-  return rows[0].nextId;
-}
-
-/**
- * GET /api/guests/lookups
- * for dropdowns (gender)
- */
 router.get("/lookups", async (req, res) => {
   try {
-    const [genders] = await pool.query(
-      "SELECT gender_id, gender_name FROM gender ORDER BY gender_name"
-    );
+    const [genders] = await pool.query(`SELECT gender_id, gender_name FROM gender ORDER BY gender_id`);
     res.json({ genders });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to load guest lookups" });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Failed to load guest lookups", error: e.code || e.message });
   }
 });
 
-/**
- * GET /api/guests
- * list guests with gender name
- */
 router.get("/", async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT 
-        g.guest_id,
-        g.name,
-        g.contact,
-        g.gender_id,
-        ge.gender_name,
-        DATE_FORMAT(g.dob, '%Y-%m-%d') AS dob
+      SELECT g.guest_id, g.guest_name, g.contact, g.age, g.gender_id, ge.gender_name, g.dob
       FROM guests g
-      JOIN gender ge ON g.gender_id = ge.gender_id
-      ORDER BY g.guest_id ASC
+      LEFT JOIN gender ge ON ge.gender_id = g.gender_id
+      ORDER BY g.guest_id DESC
     `);
-    res.json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to fetch guests" });
+    res.json(Array.isArray(rows) ? rows : []);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Failed to fetch guests", error: e.code || e.message });
   }
 });
 
-/**
- * POST /api/guests
- * body: { name, contact, gender_id, dob }
- */
 router.post("/", async (req, res) => {
-  const { name, contact, gender_id, dob } = req.body;
+  const { guest_name, contact, age, gender_id, dob } = req.body;
+  if (!guest_name) return res.status(400).json({ message: "guest_name required" });
 
-  if (!name || !contact || !gender_id || !dob) {
-    return res.status(400).json({
-      message: "name, contact, gender_id, dob are required",
-    });
-  }
-
-  const conn = await pool.getConnection();
   try {
-    await conn.beginTransaction();
-    const nextId = await getNextGuestId(conn);
-
-    await conn.query(
-      `INSERT INTO guests (guest_id, name, contact, gender_id, dob)
+    const [r] = await pool.query(
+      `INSERT INTO guests (guest_name, contact, age, gender_id, dob)
        VALUES (?, ?, ?, ?, ?)`,
-      [nextId, name.trim(), contact.trim(), Number(gender_id), dob]
+      [String(guest_name).trim(), contact ?? null, age ?? null, gender_id ?? null, dob ?? null]
     );
-
-    await conn.commit();
-    res.status(201).json({ guest_id: nextId });
-  } catch (err) {
-    await conn.rollback();
-    console.error(err);
-    res.status(500).json({ message: "Failed to create guest" });
-  } finally {
-    conn.release();
+    res.status(201).json({ guest_id: r.insertId });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Failed to create guest", error: e.code || e.message });
   }
 });
 
-/**
- * PUT /api/guests/:id
- */
 router.put("/:id", async (req, res) => {
-  const { id } = req.params;
-  const { name, contact, gender_id, dob } = req.body;
-
-  if (!name || !contact || !gender_id || !dob) {
-    return res.status(400).json({
-      message: "name, contact, gender_id, dob are required",
-    });
-  }
+  const { guest_name, contact, age, gender_id, dob } = req.body;
+  if (!guest_name) return res.status(400).json({ message: "guest_name required" });
 
   try {
-    const [result] = await pool.query(
-      `UPDATE guests
-       SET name = ?, contact = ?, gender_id = ?, dob = ?
-       WHERE guest_id = ?`,
-      [name.trim(), contact.trim(), Number(gender_id), dob, id]
+    const [r] = await pool.query(
+      `UPDATE guests SET guest_name=?, contact=?, age=?, gender_id=?, dob=? WHERE guest_id=?`,
+      [String(guest_name).trim(), contact ?? null, age ?? null, gender_id ?? null, dob ?? null, Number(req.params.id)]
     );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Guest not found" });
-    }
-
-    res.json({ updated: result.affectedRows });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to update guest" });
+    if (r.affectedRows === 0) return res.status(404).json({ message: "Guest not found" });
+    res.json({ updated: r.affectedRows });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Failed to update guest", error: e.code || e.message });
   }
 });
 
-/**
- * DELETE /api/guests/:id
- * may fail if referenced in transactions
- */
 router.delete("/:id", async (req, res) => {
   try {
-    const { id } = req.params;
-    const [result] = await pool.query("DELETE FROM guests WHERE guest_id = ?", [
-      id,
-    ]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Guest not found" });
-    }
-
-    res.json({ deleted: result.affectedRows });
-  } catch (err) {
-    console.error(err);
-
-    if (String(err?.code) === "ER_ROW_IS_REFERENCED_2") {
-      return res.status(409).json({
-        message: "Cannot delete: guest is used in other records (transactions).",
-      });
-    }
-
-    res.status(500).json({ message: "Failed to delete guest" });
+    const [r] = await pool.query(`DELETE FROM guests WHERE guest_id=?`, [Number(req.params.id)]);
+    if (r.affectedRows === 0) return res.status(404).json({ message: "Guest not found" });
+    res.json({ deleted: r.affectedRows });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Failed to delete guest", error: e.code || e.message });
   }
 });
 

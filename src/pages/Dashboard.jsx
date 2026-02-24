@@ -1,51 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Chart from "chart.js/auto";
-import EmployeeDamageModal from "../components/EmployeeDamageModal";
 
 const API_BASE = "http://localhost:5000/api";
 
 export default function Dashboard() {
-  const GUEST_TARGET = "/transactions";
-
-  // ✅ Employee Damage Modal state
-  const [edmOpen, setEdmOpen] = useState(false);
-  const [edmUser, setEdmUser] = useState(null);
-  const [edmRows, setEdmRows] = useState([]);
-
-  // ✅ placeholder damages list (add employee_id / employee_name for employee rows)
-  const damages = [
-    { id: 1, item: "Bed", category: "Furniture", status: "Pending", role: "guest" },
-    { id: 2, item: "Sheets", category: "Bedding", status: "Pending", role: "guest" },
-
-    // ✅ employee rows with specific employee
-    {
-      id: 3,
-      item: "Mug",
-      category: "Supplies",
-      status: "Pending",
-      role: "employee",
-      employee_id: "U0003",
-      employee_name: "Aira Dela Cruz",
-    },
-    {
-      id: 4,
-      item: "Walls",
-      category: "Structure",
-      status: "Resolved",
-      role: "employee",
-      employee_id: "U0001",
-      employee_name: "Employee",
-    },
-    {
-      id: 5,
-      item: "Bed",
-      category: "Furniture",
-      status: "Resolved",
-      role: "employee",
-      employee_id: "U0002",
-      employee_name: "Mark Santos",
-    },
-  ];
+  // ✅ damages must be inside the component
+  const [damages, setDamages] = useState([]);
 
   // ✅ dashboard room state
   const [dash, setDash] = useState({
@@ -60,7 +20,6 @@ export default function Dashboard() {
       totalItems: 0,
       lowStockCount: 0,
       outOfStockCount: 0,
-      lowStockThreshold: 5,
       availableCount: 0,
       threshold: 100,
     },
@@ -68,6 +27,17 @@ export default function Dashboard() {
   });
 
   const chartRef = useRef(null);
+
+  async function loadDamages() {
+    try {
+      const res = await fetch(`${API_BASE}/damages?limit=10`);
+      const data = await res.json();
+      setDamages(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error("Failed to load damages:", e);
+      setDamages([]);
+    }
+  }
 
   // ✅ load rooms + inventory dashboard data
   useEffect(() => {
@@ -85,9 +55,7 @@ export default function Dashboard() {
 
         setDash({
           totalRooms: roomsData.totalRooms || 0,
-          statusCounts: Array.isArray(roomsData.statusCounts)
-            ? roomsData.statusCounts
-            : [],
+          statusCounts: Array.isArray(roomsData.statusCounts) ? roomsData.statusCounts : [],
           roomList: Array.isArray(roomsData.roomList) ? roomsData.roomList : [],
         });
 
@@ -105,6 +73,9 @@ export default function Dashboard() {
         console.error("Dashboard load failed:", e);
       }
     })();
+
+    // load damages too
+    loadDamages();
   }, []);
 
   const countsMap = useMemo(() => {
@@ -117,15 +88,8 @@ export default function Dashboard() {
   const cleaning = countsMap.get("Cleaning") || 0;
   const notAvailable = countsMap.get("Not available") || 0;
 
-  const labels = useMemo(
-    () => dash.statusCounts.map((s) => s.status_name),
-    [dash.statusCounts]
-  );
-
-  const values = useMemo(
-    () => dash.statusCounts.map((s) => Number(s.count) || 0),
-    [dash.statusCounts]
-  );
+  const labels = useMemo(() => dash.statusCounts.map((s) => s.status_name), [dash.statusCounts]);
+  const values = useMemo(() => dash.statusCounts.map((s) => Number(s.count) || 0), [dash.statusCounts]);
 
   // ✅ chart effect (no duplicates)
   useEffect(() => {
@@ -147,12 +111,6 @@ export default function Dashboard() {
             data: values,
             borderWidth: 0,
             backgroundColor: labels.map((name) => {
-              const s = String(name || "").toLowerCase();
-              if (s === "available") return "#2ecc71";
-              if (s === "cleaning") return "#f1c40f";
-              return "#e74c3c";
-            }),
-            hoverBackgroundColor: labels.map((name) => {
               const s = String(name || "").toLowerCase();
               if (s === "available") return "#2ecc71";
               if (s === "cleaning") return "#f1c40f";
@@ -183,62 +141,10 @@ export default function Dashboard() {
     return "red";
   }
 
-  // ✅ OPEN ACTION: guest redirect / employee open modal
-  async function handleDamageRowClick(damageRow) {
-    const r = String(damageRow?.role || "").toLowerCase();
-
-    if (r === "guest") {
-      window.location.href = GUEST_TARGET;
-      return;
-    }
-
-    if (r === "employee") {
-      const user = {
-        user_id: damageRow?.employee_id ?? "U0001",
-        name: damageRow?.employee_name ?? "Employee",
-      };
-
-      setEdmUser(user);
-
-      try {
-        // ✅ If naa na kay backend route, use this:
-        // const res = await fetch(`${API_BASE}/employee-damages?user_id=${encodeURIComponent(user.user_id)}`);
-        // const rows = await res.json();
-        // setEdmRows(Array.isArray(rows) ? rows : []);
-
-        // ✅ Placeholder rows (demo)
-        setEdmRows([
-          {
-            edam_id: 1,
-            inventory_id: 12,
-            inventory_name: damageRow?.item ?? "Inventory",
-            date_reported: "2026-02-20",
-            status_id: 1,
-            cost_to_hotel: 150,
-          },
-          {
-            edam_id: 2,
-            inventory_id: 15,
-            inventory_name: "Another Item",
-            date_reported: "2026-02-19",
-            status_id: 2,
-            cost_to_hotel: 500,
-          },
-        ]);
-      } catch (e) {
-        console.error("Load employee damages failed:", e);
-        setEdmRows([]);
-      }
-
-      setEdmOpen(true);
-    }
-  }
-
   return (
     <>
       {/* Summary Cards */}
       <section className="summary-cards">
-        {/* Row 1: ROOM STATUS */}
         <div className="cards-row">
           <a href="/room" className="card">
             <p>Room Available</p>
@@ -258,7 +164,6 @@ export default function Dashboard() {
 
         <div className="cards-divider" />
 
-        {/* Row 2: INVENTORY STATUS */}
         <div className="cards-row">
           <a href="/inventory" className="card">
             <p>Inventory Available</p>
@@ -285,15 +190,9 @@ export default function Dashboard() {
 
             <div className="room-top">
               <ul className="status-legend">
-                <li>
-                  <span className="legend-dot green"></span>Available
-                </li>
-                <li>
-                  <span className="legend-dot yellow"></span>Cleaning
-                </li>
-                <li>
-                  <span className="legend-dot red"></span>Not available
-                </li>
+                <li><span className="legend-dot green"></span>Available</li>
+                <li><span className="legend-dot yellow"></span>Cleaning</li>
+                <li><span className="legend-dot red"></span>Not available</li>
               </ul>
 
               <div className="chart-placeholder">
@@ -304,15 +203,10 @@ export default function Dashboard() {
             <div className="room-bottom">
               <ul className="room-list">
                 {dash.roomList.map((r) => (
-                  <li
-                    key={r.room_id}
-                    data-status={String(r.status_name || "").toLowerCase()}
-                  >
+                  <li key={r.room_id} data-status={String(r.status_name || "").toLowerCase()}>
                     <span className={`dot ${statusToDotClass(r.status_name)}`} />
                     {r.room_number}{" "}
-                    <small>
-                      {r.type_name} - ₱{r.base_rate}
-                    </small>
+                    <small>{r.type_name} - ₱{r.base_rate}</small>
                   </li>
                 ))}
               </ul>
@@ -337,11 +231,7 @@ export default function Dashboard() {
 
                 <tbody>
                   {inv.lowStockItems.length === 0 ? (
-                    <tr>
-                      <td colSpan={3} style={{ opacity: 0.7 }}>
-                        No low stock items
-                      </td>
-                    </tr>
+                    <tr><td colSpan={3} style={{ opacity: 0.7 }}>No low stock items</td></tr>
                   ) : (
                     inv.lowStockItems.map((it) => (
                       <tr key={it.inv_id}>
@@ -356,7 +246,7 @@ export default function Dashboard() {
             </div>
           </a>
 
-          {/* ✅ Damages (NO <a> wrapper) */}
+          {/* ✅ Damages (DB Connected) */}
           <div className="table-card">
             <h3>Damages</h3>
 
@@ -364,51 +254,44 @@ export default function Dashboard() {
               <thead>
                 <tr>
                   <th>Item</th>
-                  <th>Category</th>
                   <th>Status</th>
-                  <th></th>
+                  <th>Charge</th>
+                  <th>Guest / Room</th>
                 </tr>
               </thead>
 
               <tbody>
-                {damages.map((d) => (
-                  <tr
-                    key={d.id}
-                    className="damage-row"
-                    data-role={d.role}
-                    onClick={() => handleDamageRowClick(d)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <td>{d.item}</td>
-                    <td>{d.category}</td>
-                    <td>{d.status}</td>
-                    <td>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleDamageRowClick(d);
-                        }}
-                      >
-                        {d.role}
-                      </button>
+                {damages.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} style={{ opacity: 0.7, textAlign: "center" }}>
+                      No damage records
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  damages.map((d) => (
+                    <tr key={d.gdam_id}>
+                      <td>{d.item_name}</td>
+                      <td>{d.damage_status}</td>
+                      <td>₱{Number(d.charge_amount || 0).toFixed(2)}</td>
+                      <td>
+                        {d.guest_name} / {d.room_number}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
+
+            <button
+              type="button"
+              onClick={loadDamages}
+              style={{ marginTop: 10, border: "none", cursor: "pointer", opacity: 0.8 }}
+            >
+              Refresh
+            </button>
           </div>
         </div>
       </section>
-
-      {/* ✅ Employee Damage Modal */}
-      <EmployeeDamageModal
-        open={edmOpen}
-        onClose={() => setEdmOpen(false)}
-        user={edmUser}
-        damageRows={edmRows}
-      />
     </>
   );
 }

@@ -1,106 +1,88 @@
 const express = require("express");
-const router = express.Router();
 const pool = require("../db");
+const router = express.Router();
 
-/**
- * GET /api/dashboard/rooms
- * Returns:
- * - total rooms
- * - counts per status
- * - list of rooms with type + status (for the room list panel)
- */
-router.get("/rooms", async (req, res) => {
+// dashboard list
+router.get("/", async (req, res) => {
   try {
-    // total rooms
-    const [[totalRow]] = await pool.query(`SELECT COUNT(*) AS totalRooms FROM rooms`);
-
-    // counts by status name
-    const [statusCounts] = await pool.query(`
-      SELECT rs.status_name, COUNT(*) AS count
-      FROM rooms r
-      JOIN room_status rs ON r.status_id = rs.status_id
-      GROUP BY rs.status_id, rs.status_name
-      ORDER BY rs.status_id ASC
-    `);
-
-    // room list for dashboard panel (room number, status, type, base_rate)
-    const [roomList] = await pool.query(`
+    const [rows] = await pool.query(`
       SELECT
-        r.room_id,
+        gd.gdam_id,
+        i.item_name AS item,
+        c.category_name AS category,
+        ds.status_name AS status,
+        gd.charge_amount AS charge,
+        g.guest_name,
         r.room_number,
-        rs.status_name,
-        rt.type_name,
-        rt.base_rate
-      FROM rooms r
-      JOIN room_status rs ON r.status_id = rs.status_id
-      JOIN room_type rt ON r.room_type_id = rt.room_type_id
-      ORDER BY CAST(SUBSTRING(r.room_number, 2) AS UNSIGNED) ASC
-      LIMIT 50
+        gd.date_reported
+      FROM guest_damage gd
+      LEFT JOIN inventory i ON i.inv_id = gd.inv_id
+      LEFT JOIN inventory_category c ON c.category_id = i.category_id
+      LEFT JOIN damage_status ds ON ds.damage_status_id = gd.damage_status_id
+      LEFT JOIN transactions t ON t.trans_id = gd.trans_id
+      LEFT JOIN guests g ON g.guest_id = t.guest_id
+      LEFT JOIN rooms r ON r.room_id = t.room_id
+      ORDER BY gd.gdam_id DESC
+      LIMIT 10
     `);
 
-    res.json({
-      totalRooms: totalRow.totalRooms,
-      statusCounts, // [{status_name, count}, ...]
-      roomList,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to load dashboard rooms data" });
+    res.json(Array.isArray(rows) ? rows : []);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Failed to fetch damages" });
   }
 });
 
-router.get("/inventory/low-stock", async (req, res) => {
-  try {
-    const limit = Number(req.query.limit || 5);
-    const threshold = Number(req.query.threshold || 5);
+// create damage
+router.post("/", async (req, res) => {
+  const { trans_id, inv_id, charge_amount, damage_status_id, date_reported } = req.body;
+  if (!trans_id || !inv_id) return res.status(400).json({ message: "trans_id and inv_id required" });
 
-    const [rows] = await pool.query(
-      `
-      SELECT 
-        i.inv_id,
-        i.name,
-        i.quantity,
-        c.category_name
-      FROM inventory i
-      JOIN inventory_category c ON i.category_id = c.category_id
-      WHERE i.quantity <= ?
-      ORDER BY i.quantity ASC, i.inv_id ASC
-      LIMIT ?
-      `,
-      [threshold, limit]
+  try {
+    const [r] = await pool.query(
+      `INSERT INTO guest_damage (trans_id, inv_id, charge_amount, date_reported, damage_status_id)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        Number(trans_id),
+        Number(inv_id),
+        charge_amount ?? 0,
+        date_reported ?? new Date(),
+        damage_status_id ?? 1
+      ]
     );
 
-    res.json({ threshold, items: rows });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to load low stock items" });
+    res.status(201).json({ gdam_id: r.insertId });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Failed to create damage" });
   }
 });
-router.get("/inventory/low-stock", async (req, res) => {
+
+// update
+router.put("/:id", async (req, res) => {
+  const { charge_amount, damage_status_id } = req.body;
   try {
-    const limit = Number(req.query.limit || 5);
-    const threshold = Number(req.query.threshold || 5);
-
-    const [rows] = await pool.query(
-      `
-      SELECT 
-        i.inv_id,
-        i.name,
-        i.quantity,
-        c.category_name
-      FROM inventory i
-      JOIN inventory_category c ON i.category_id = c.category_id
-      WHERE i.quantity <= ?
-      ORDER BY i.quantity ASC, i.inv_id ASC
-      LIMIT ?
-      `,
-      [threshold, limit]
+    const [r] = await pool.query(
+      `UPDATE guest_damage SET charge_amount=?, damage_status_id=? WHERE gdam_id=?`,
+      [charge_amount ?? 0, damage_status_id ?? 1, Number(req.params.id)]
     );
+    if (r.affectedRows === 0) return res.status(404).json({ message: "Damage not found" });
+    res.json({ updated: r.affectedRows });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Failed to update damage" });
+  }
+});
 
-    res.json({ threshold, items: rows });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to load low stock items" });
+// delete
+router.delete("/:id", async (req, res) => {
+  try {
+    const [r] = await pool.query(`DELETE FROM guest_damage WHERE gdam_id=?`, [Number(req.params.id)]);
+    if (r.affectedRows === 0) return res.status(404).json({ message: "Damage not found" });
+    res.json({ deleted: r.affectedRows });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Failed to delete damage" });
   }
 });
 

@@ -2,28 +2,23 @@ import { useEffect, useMemo, useState } from "react";
 import SalesModal from "../components/SalesModal";
 import ReceiptModal from "../components/ReceiptModal";
 
-const STORAGE_KEY = "transactions";
-const SALES_KEY = "purchased_by_trans";
+const API_BASE = "http://localhost:5000/api";
 
-function pad(num) {
-  return String(num).padStart(4, "0");
-}
-function getIdNumber(id) {
-  const n = parseInt(String(id || "").replace(/^T/i, ""), 10);
-  return Number.isNaN(n) ? null : n;
-}
+/** expects ISO string or mysql datetime; returns { date:"YYYY/MM/DD", time:"HH:mm:ss" } */
+function splitToDisplayParts(dt) {
+  if (!dt) return { date: "—", time: "" };
 
-/** expects ISO string "YYYY-MM-DDTHH:mm" or "YYYY-MM-DDTHH:mm:ss"
- * returns { date:"YYYY/MM/DD", time:"HH:mm:ss" }
- */
-function splitToDisplayParts(dtLocal) {
-  if (!dtLocal) return { date: "—", time: "" };
-  const d = new Date(dtLocal);
+  // handle mysql datetime "YYYY-MM-DD HH:mm:ss"
+  const normalized = String(dt).includes(" ")
+    ? String(dt).replace(" ", "T")
+    : String(dt);
+
+  const d = new Date(normalized);
   if (Number.isNaN(d.getTime())) {
-    // fallback if already "2025/01/25" etc.
-    const [date, time] = String(dtLocal).split("T");
+    const [date, time] = String(dt).split("T");
     return { date: (date || "—").replaceAll("-", "/"), time: (time || "").slice(0, 8) };
   }
+
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
@@ -33,73 +28,53 @@ function splitToDisplayParts(dtLocal) {
   return { date: `${yyyy}/${mm}/${dd}`, time: `${hh}:${mi}:${ss}` };
 }
 
-function nowLocalIso() {
+function nowLocalIsoForInput() {
+  // datetime-local expects "YYYY-MM-DDTHH:mm"
   const d = new Date();
   const off = d.getTimezoneOffset();
   const local = new Date(d.getTime() - off * 60000);
-  return local.toISOString().slice(0, 19); // YYYY-MM-DDTHH:mm:ss
+  return local.toISOString().slice(0, 16);
+}
+
+function toMysqlDatetimeFromInput(dtLocal) {
+  // from "YYYY-MM-DDTHH:mm" -> "YYYY-MM-DD HH:mm:00"
+  if (!dtLocal) return "";
+  return dtLocal.replace("T", " ") + ":00";
+}
+
+function fromMysqlDatetimeToInput(dt) {
+  // from "YYYY-MM-DD HH:mm:ss" -> "YYYY-MM-DDTHH:mm"
+  if (!dt) return "";
+  return String(dt).replace(" ", "T").slice(0, 16);
 }
 
 export default function Transactions() {
-  // ---- seed rows (same as your HTML) ----
-  const initialRows = [
-    {
-      trans_id: "T0001",
-      status: "paid",
-      guest_name: "Jill Santiago",
-      username: "Jeson",
-      room_num: "101",
-      checkin: "2025-01-25T12:25:03",
-      checkout: "2025-01-25T03:25:03",
-      amount: "80",
-      date_created_dt: "2025-01-25T03:25:03",
-    },
-    {
-      trans_id: "T0002",
-      status: "paid",
-      guest_name: "Mart Santiago",
-      username: "Jeson",
-      room_num: "101",
-      checkin: "2025-01-25T12:25:03",
-      checkout: "2025-01-25T03:25:03",
-      amount: "80",
-      date_created_dt: "2025-01-25T03:25:03",
-    },
-    {
-      trans_id: "T0003",
-      status: "unpaid",
-      guest_name: "Ann Flores",
-      username: "Jeson",
-      room_num: "107",
-      checkin: "2025-01-25T07:40:56",
-      checkout: "2025-01-25T03:40:56",
-      amount: "200",
-      date_created_dt: "2025-01-25T03:25:03",
-    },
-  ];
-
-  const [transactions, setTransactions] = useState(initialRows);
+  const [transactions, setTransactions] = useState([]);
+  const [lookups, setLookups] = useState({ guests: [], users: [], rooms: [] });
   const [search, setSearch] = useState("");
 
-  // ---- New Transaction modal state ----
+  // actions menu
+  const [openMenuId, setOpenMenuId] = useState(null);
+
+  // modal state
   const [txOpen, setTxOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState(null); // null=create, object=edit
+
   const [txForm, setTxForm] = useState({
-    trans_id: "",
-    status: "unpaid",
-    guest_name: "",
-    username: "",
-    room_num: "",
+    guest_id: "",
+    user_id: "",
+    room_id: "",
     checkin: "",
     checkout: "",
-    amount: "",
-    date_created_dt: "",
+    actual_rate_charged: "",
+    date_created: "",
   });
 
-  // ---- Receipt modal state (stub: ikaw na connect sa receipt modal UI if naa ka component) ----
+  // Receipt modal
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptTarget, setReceiptTarget] = useState(null);
 
-  // ---- Sales modal state ----
+  // Sales modal
   const [salesOpen, setSalesOpen] = useState(false);
   const [salesTarget, setSalesTarget] = useState({ transId: "", guest: "" });
 
@@ -112,112 +87,146 @@ export default function Transactions() {
     []
   );
 
-  // Load saved user-added transactions
-  useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    if (Array.isArray(saved) && saved.length) {
-      const map = new Map();
-      [...initialRows, ...saved].forEach((t) => map.set(t.trans_id, t));
-      setTransactions(Array.from(map.values()));
+    async function loadAll() {
+    try {
+      const [tRes, lRes] = await Promise.all([
+        fetch(`${API_BASE}/transactions`),
+        fetch(`${API_BASE}/transactions/lookups`),
+      ]);
+
+      if (!tRes.ok) {
+        const err = await tRes.json().catch(() => ({}));
+        throw new Error(err.message || "Failed /transactions");
+      }
+
+      if (!lRes.ok) {
+        const err = await lRes.json().catch(() => ({}));
+        throw new Error(err.message || "Failed /transactions/lookups");
+      }
+
+      const tJson = await tRes.json();
+      const lJson = await lRes.json();
+
+      setTransactions(Array.isArray(tJson) ? tJson : []);
+      setLookups({
+        guests: Array.isArray(lJson.guests) ? lJson.guests : [],
+        users: Array.isArray(lJson.users) ? lJson.users : [],
+        rooms: Array.isArray(lJson.rooms) ? lJson.rooms : [],
+      });
+    } catch (e) {
+      console.error("Transactions loadAll error:", e);
+      alert(e.message);
+      setTransactions([]);
+      setLookups({ guests: [], users: [], rooms: [] });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }
+
+  useEffect(() => {
+    loadAll();
   }, []);
 
-  // Next ID
-  const nextId = useMemo(() => {
-    let max = 3;
-    transactions.forEach((t) => {
-      const n = getIdNumber(t.trans_id);
-      if (n !== null) max = Math.max(max, n);
-    });
-    return `T${pad(max + 1)}`;
-  }, [transactions]);
-
-  // When opening modal, prefill ID + date_created_dt
-  useEffect(() => {
-    if (!txOpen) return;
-    setTxForm((p) => ({
-      ...p,
-      trans_id: p.trans_id || nextId,
-      date_created_dt: p.date_created_dt || nowLocalIso(),
-      status: p.status || "unpaid",
-    }));
-  }, [txOpen, nextId]);
-
-  // Search filter
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return transactions;
-    return transactions.filter((t) => (t.guest_name || "").toLowerCase().includes(q));
+    return transactions.filter((t) =>
+      String(t.guest_name || "").toLowerCase().includes(q)
+    );
   }, [search, transactions]);
 
-  function openTxModal() {
+  function openCreateModal() {
+    setEditTarget(null);
+    setTxForm({
+      guest_id: "",
+      user_id: "",
+      room_id: "",
+      checkin: nowLocalIsoForInput(),
+      checkout: nowLocalIsoForInput(),
+      actual_rate_charged: "",
+      date_created: nowLocalIsoForInput(),
+    });
     setTxOpen(true);
   }
+
+  function openEditModal(t) {
+    setEditTarget(t);
+    setTxForm({
+      guest_id: String(t.guest_id),
+      user_id: String(t.user_id),
+      room_id: String(t.room_id),
+      checkin: fromMysqlDatetimeToInput(t.checkin),
+      checkout: fromMysqlDatetimeToInput(t.checkout),
+      actual_rate_charged: String(t.actual_rate_charged ?? ""),
+      date_created: fromMysqlDatetimeToInput(t.date_created),
+    });
+    setTxOpen(true);
+  }
+
   function closeTxModal() {
     setTxOpen(false);
+    setEditTarget(null);
   }
 
-  function saveTransactionsToStorage(list) {
-    // store only user-added (T0004+)
-    const onlyUserAdded = list.filter((t) => {
-      const n = getIdNumber(t.trans_id);
-      return n !== null && n > 3;
-    });
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(onlyUserAdded));
-  }
-
-  function handleTxSubmit(e) {
+  async function handleTxSubmit(e) {
     e.preventDefault();
 
-    const inVal = txForm.checkin;
-    const outVal = txForm.checkout;
-
-    if (inVal && outVal) {
-      const inDate = new Date(inVal);
-      const outDate = new Date(outVal);
-      if (!Number.isNaN(inDate.getTime()) && !Number.isNaN(outDate.getTime())) {
-        if (outDate <= inDate) {
-          alert("Check-out must be after Check-in.");
-          return;
-        }
-      }
+    // validate checkin < checkout
+    const ci = new Date(txForm.checkin);
+    const co = new Date(txForm.checkout);
+    if (!Number.isNaN(ci.getTime()) && !Number.isNaN(co.getTime()) && co <= ci) {
+      alert("Check-out must be after Check-in.");
+      return;
     }
 
-    const newTx = {
-      ...txForm,
-      trans_id: (txForm.trans_id || "").trim() || nextId,
-      status: (txForm.status || "unpaid").toLowerCase(),
-      guest_name: (txForm.guest_name || "").trim(),
-      username: (txForm.username || "").trim(),
-      room_num: (txForm.room_num || "").trim(),
-      amount: String(txForm.amount ?? "").trim(),
-      date_created_dt: txForm.date_created_dt || nowLocalIso(),
+    const payload = {
+      guest_id: Number(txForm.guest_id),
+      user_id: Number(txForm.user_id),
+      room_id: Number(txForm.room_id),
+      checkin: toMysqlDatetimeFromInput(txForm.checkin),
+      checkout: toMysqlDatetimeFromInput(txForm.checkout),
+      actual_rate_charged: Number(txForm.actual_rate_charged),
+      date_created: toMysqlDatetimeFromInput(txForm.date_created),
     };
 
-    setTransactions((prev) => {
-      const map = new Map(prev.map((t) => [t.trans_id, t]));
-      map.set(newTx.trans_id, newTx);
-      const updated = Array.from(map.values());
-      saveTransactionsToStorage(updated);
-      return updated;
+    const url = editTarget
+      ? `${API_BASE}/transactions/${editTarget.trans_id}`
+      : `${API_BASE}/transactions`;
+
+    const method = editTarget ? "PUT" : "POST";
+
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
 
-    setTxForm({
-      trans_id: "",
-      status: "unpaid",
-      guest_name: "",
-      username: "",
-      room_num: "",
-      checkin: "",
-      checkout: "",
-      amount: "",
-      date_created_dt: "",
-    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.message || "Failed to save transaction");
+      return;
+    }
+
     closeTxModal();
+    await loadAll();
   }
 
-  // Receipt open (ikaw na connect actual receipt modal content)
+  async function deleteTransaction(t) {
+    const ok = window.confirm(`Delete transaction #${t.trans_id}?`);
+    if (!ok) return;
+
+    const res = await fetch(`${API_BASE}/transactions/${t.trans_id}`, {
+      method: "DELETE",
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.message || "Failed to delete transaction");
+      return;
+    }
+
+    await loadAll();
+  }
+
+  // Receipt open
   function openReceiptModal(transId) {
     const tx = transactions.find((t) => t.trans_id === transId) || null;
     setReceiptTarget(tx);
@@ -237,14 +246,8 @@ export default function Transactions() {
     setSalesOpen(false);
   }
 
-  function saveSale(sale) {
-    const trans_id = sale.trans_id;
-    const data = JSON.parse(localStorage.getItem(SALES_KEY) || "{}");
-    const list = Array.isArray(data[trans_id]) ? data[trans_id] : [];
-    list.push(sale);
-    data[trans_id] = list;
-    localStorage.setItem(SALES_KEY, JSON.stringify(data));
-    alert(`Saved sale for ${trans_id}!`);
+  function saveSale() {
+    alert("Sales saved (connect this to your real sales table if you have one).");
   }
 
   return (
@@ -263,12 +266,6 @@ export default function Transactions() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-
-          {/* optional: icons on right (calculator + notif) if you want */}
-          {/* <div className="top-icons">
-            <img src="/assets/images/calculator.png" alt="calculator" className="calculator" />
-            <img src="/assets/images/notification.png" alt="notification" />
-          </div> */}
         </div>
       </header>
 
@@ -277,16 +274,17 @@ export default function Transactions() {
         <div className="tx-table-wrap">
           <table className="tx-table">
             <colgroup>
-              <col style={{ width: "55px" }} />   {/* receipt icon */}
-              <col style={{ width: "100px" }} />  {/* status */}
-              <col style={{ width: "130px" }} />  {/* guest */}
-              <col style={{ width: "110px" }} />  {/* username */}
-              <col style={{ width: "60px" }} />   {/* room */}
-              <col style={{ width: "140px" }} />  {/* checkin */}
-              <col style={{ width: "160px" }} />  {/* checkout */}
-              <col style={{ width: "90px" }} />   {/* amount */}
-              <col style={{ width: "160px" }} />  {/* date created */}
-              <col style={{ width: "52px" }} />   {/* cart */}
+              <col style={{ width: "55px" }} />
+              <col style={{ width: "100px" }} />
+              <col style={{ width: "160px" }} />
+              <col style={{ width: "120px" }} />
+              <col style={{ width: "70px" }} />
+              <col style={{ width: "160px" }} />
+              <col style={{ width: "160px" }} />
+              <col style={{ width: "100px" }} />
+              <col style={{ width: "170px" }} />
+              <col style={{ width: "52px" }} />
+              <col style={{ width: "70px" }} /> {/* ... menu */}
             </colgroup>
 
             <thead>
@@ -301,6 +299,7 @@ export default function Transactions() {
                 <th>Amount</th>
                 <th>Date Created</th>
                 <th className="col-action"></th>
+                <th className="col-action"></th>
               </tr>
             </thead>
 
@@ -308,30 +307,26 @@ export default function Transactions() {
               {filtered.map((t) => {
                 const ci = splitToDisplayParts(t.checkin);
                 const co = splitToDisplayParts(t.checkout);
-                const dc = splitToDisplayParts(t.date_created_dt);
+                const dc = splitToDisplayParts(t.date_created);
+
+                // status is not stored in DB table -> display "unpaid" default
                 const status = (t.status || "unpaid").toLowerCase();
 
                 return (
-                        <tr key={t.trans_id} className={`tx-row ${status}`}>
-
+                  <tr key={t.trans_id} className={`tx-row ${status}`}>
                     {/* receipt icon */}
                     <td className="col-icon">
                       <button
                         className="icon-btn receipt-btn"
                         type="button"
-                        data-trans-id={t.trans_id}
                         onClick={() => openReceiptModal(t.trans_id)}
                         title="Receipt"
                       >
-                        <img
-                          className="row-icon"
-                          src="/assets/images/receipt.png"
-                          alt="receipt"
-                        />
+                        <img className="row-icon" src="/assets/images/receipt.png" alt="receipt" />
                       </button>
                     </td>
 
-                    {/* status pill */}
+                    {/* status pill (display only) */}
                     <td className="col-status">
                       <span className={`status-pill ${status === "paid" ? "paid" : "unpaid"}`}>
                         {status}
@@ -340,7 +335,7 @@ export default function Transactions() {
 
                     <td className="td-left">{t.guest_name}</td>
                     <td className="td-left">{t.username}</td>
-                    <td>{t.room_num}</td>
+                    <td>{t.room_number}</td>
 
                     <td className="td-center">
                       {ci.date}
@@ -354,7 +349,7 @@ export default function Transactions() {
                       <span className="muted">{co.time}</span>
                     </td>
 
-                    <td>{t.amount}</td>
+                    <td>{Number(t.actual_rate_charged || 0).toFixed(2)}</td>
 
                     <td className="td-center">
                       {dc.date}
@@ -367,16 +362,74 @@ export default function Transactions() {
                       <button
                         className="cart-btn"
                         type="button"
-                        data-trans-id={t.trans_id}
                         onClick={() => openSalesModal(t.trans_id, t.guest_name)}
                         title="Sales"
                       >
-                        <img
-                          className="row-icon"
-                          src="/assets/images/sales.png"
-                          alt="cart"
-                        />
+                        <img className="row-icon" src="/assets/images/sales.png" alt="cart" />
                       </button>
+                    </td>
+
+                    {/* ... actions */}
+                    <td className="col-action" style={{ position: "relative" }}>
+                      <img
+                        src="/assets/images/more.png"
+                        alt="more"
+                        style={{ cursor: "pointer" }}
+                        onClick={() =>
+                          setOpenMenuId((prev) => (prev === t.trans_id ? null : t.trans_id))
+                        }
+                      />
+
+                      {openMenuId === t.trans_id && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            right: 10,
+                            top: 30,
+                            background: "#fff",
+                            borderRadius: 10,
+                            boxShadow: "0 10px 22px rgba(0,0,0,0.12)",
+                            overflow: "hidden",
+                            minWidth: 120,
+                            zIndex: 9999,
+                          }}
+                          onMouseLeave={() => setOpenMenuId(null)}
+                        >
+                          <button
+                            onClick={() => {
+                              setOpenMenuId(null);
+                              openEditModal(t);
+                            }}
+                            style={{
+                              width: "100%",
+                              padding: "10px 12px",
+                              border: "none",
+                              background: "transparent",
+                              textAlign: "left",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              setOpenMenuId(null);
+                              deleteTransaction(t);
+                            }}
+                            style={{
+                              width: "100%",
+                              padding: "10px 12px",
+                              border: "none",
+                              background: "transparent",
+                              textAlign: "left",
+                              cursor: "pointer",
+                              color: "#b00020",
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
@@ -384,7 +437,7 @@ export default function Transactions() {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="td-center">
+                  <td colSpan={11} className="td-center" style={{ padding: 18, opacity: 0.7 }}>
                     No results
                   </td>
                 </tr>
@@ -395,19 +448,12 @@ export default function Transactions() {
       </section>
 
       {/* floating button */}
-      <button className="new-tx-btn" type="button" onClick={openTxModal}>
+      <button className="new-tx-btn" type="button" onClick={openCreateModal}>
         <span className="plus">＋</span>
         New Transaction
       </button>
 
- 
-       {/* floating button */}
-      <button className="new-tx-btn" type="button" onClick={openTxModal}>
-        <span className="plus">＋</span>
-        New Transaction
-      </button>
-
-      {/* NEW TRANSACTION MODAL */}
+      {/* NEW/EDIT TRANSACTION MODAL */}
       <div
         className={`tx-overlay ${txOpen ? "show" : ""}`}
         aria-hidden={txOpen ? "false" : "true"}
@@ -415,73 +461,61 @@ export default function Transactions() {
           if (e.target.classList.contains("tx-overlay")) closeTxModal();
         }}
       >
-        <div className="tx-modal" role="dialog" aria-modal="true" aria-label="New Transaction">
+        <div className="tx-modal" role="dialog" aria-modal="true" aria-label="Transaction">
           <button className="tx-close" type="button" onClick={closeTxModal}>
             ✕
           </button>
 
-          <h2 className="tx-title">New Transaction</h2>
+          <h2 className="tx-title">{editTarget ? "Edit Transaction" : "New Transaction"}</h2>
 
           <form id="txForm" onSubmit={handleTxSubmit}>
             <div className="tx-grid">
               <label className="field">
-                <span>Transaction ID</span>
-                <input
-                  id="trans_id"
-                  type="text"
-                  placeholder={nextId}
-                  value={txForm.trans_id}
-                  onChange={(e) => setTxForm((p) => ({ ...p, trans_id: e.target.value }))}
-                  required
-                />
-              </label>
-
-              <label className="field">
-                <span>Status</span>
+                <span>Guest</span>
                 <select
-                  value={txForm.status}
-                  onChange={(e) => setTxForm((p) => ({ ...p, status: e.target.value }))}
+                  value={txForm.guest_id}
+                  onChange={(e) => setTxForm((p) => ({ ...p, guest_id: e.target.value }))}
                   required
                 >
-                  <option value="paid">paid</option>
-                  <option value="unpaid">unpaid</option>
+                  <option value="">Select guest</option>
+                  {lookups.guests.map((g) => (
+                    <option key={g.guest_id} value={g.guest_id}>
+                      {g.guest_name}
+                    </option>
+                  ))}
                 </select>
               </label>
 
               <label className="field">
-                <span>Guest Name</span>
-                <input
-                  id="guest_name"
-                  type="text"
-                  placeholder="Juan Dela Cruz"
-                  value={txForm.guest_name}
-                  onChange={(e) => setTxForm((p) => ({ ...p, guest_name: e.target.value }))}
+                <span>User</span>
+                <select
+                  value={txForm.user_id}
+                  onChange={(e) => setTxForm((p) => ({ ...p, user_id: e.target.value }))}
                   required
-                />
+                >
+                  <option value="">Select user</option>
+                  {lookups.users.map((u) => (
+                    <option key={u.user_id} value={u.user_id}>
+                      {u.username}
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <label className="field">
-                <span>Username</span>
-                <input
-                  id="username"
-                  type="text"
-                  placeholder="Jason"
-                  value={txForm.username}
-                  onChange={(e) => setTxForm((p) => ({ ...p, username: e.target.value }))}
+                <span>Room</span>
+                <select
+                  value={txForm.room_id}
+                  onChange={(e) => setTxForm((p) => ({ ...p, room_id: e.target.value }))}
                   required
-                />
-              </label>
-
-              <label className="field">
-                <span>Room #</span>
-                <input
-                  id="room_num"
-                  type="text"
-                  placeholder="101"
-                  value={txForm.room_num}
-                  onChange={(e) => setTxForm((p) => ({ ...p, room_num: e.target.value }))}
-                  required
-                />
+                >
+                  <option value="">Select room</option>
+                  {lookups.rooms.map((r) => (
+                    <option key={r.room_id} value={r.room_id}>
+                      {r.room_number}
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <label className="field">
@@ -509,12 +543,14 @@ export default function Transactions() {
               <label className="field">
                 <span>Amount</span>
                 <input
-                  id="amount"
+                  id="actual_rate_charged"
                   type="number"
                   step="0.01"
-                  placeholder="80"
-                  value={txForm.amount}
-                  onChange={(e) => setTxForm((p) => ({ ...p, amount: e.target.value }))}
+                  placeholder="0.00"
+                  value={txForm.actual_rate_charged}
+                  onChange={(e) =>
+                    setTxForm((p) => ({ ...p, actual_rate_charged: e.target.value }))
+                  }
                   required
                 />
               </label>
@@ -522,16 +558,12 @@ export default function Transactions() {
               <label className="field">
                 <span>Date Created</span>
                 <input
-                  id="date_created_dt"
+                  id="date_created"
                   type="datetime-local"
-                  value={(txForm.date_created_dt || "").slice(0, 16)}
-                  onChange={(e) =>
-                    setTxForm((p) => ({
-                      ...p,
-                      date_created_dt: e.target.value ? `${e.target.value}:00` : "",
-                    }))
-                  }
+                  value={txForm.date_created}
+                  onChange={(e) => setTxForm((p) => ({ ...p, date_created: e.target.value }))}
                   required
+                  disabled={!!editTarget} // keep original date on edit
                 />
               </label>
             </div>
@@ -541,7 +573,7 @@ export default function Transactions() {
                 Cancel
               </button>
               <button className="btn primary" type="submit">
-                Add
+                {editTarget ? "Save" : "Add"}
               </button>
             </div>
           </form>

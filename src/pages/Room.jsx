@@ -11,16 +11,22 @@ export default function Room() {
   const [openMenuId, setOpenMenuId] = useState(null);
 
   async function loadAll() {
-    const [roomsRes, lookupsRes] = await Promise.all([
-      fetch(`${API_BASE}/rooms`),
-      fetch(`${API_BASE}/rooms/lookups`),
-    ]);
+    try {
+      const [roomsRes, lookupsRes] = await Promise.all([
+        fetch(`${API_BASE}/rooms`),
+        fetch(`${API_BASE}/rooms/lookups`),
+      ]);
 
-    const roomsJson = await roomsRes.json();
-    const lookupsJson = await lookupsRes.json();
+      const roomsJson = await roomsRes.json();
+      const lookupsJson = await lookupsRes.json();
 
-    setRooms(roomsJson);
-    setLookups(lookupsJson);
+      // 🔴 IMPORTANT FIX: force array
+      setRooms(Array.isArray(roomsJson) ? roomsJson : []);
+      setLookups(lookupsJson || { roomTypes: [], roomStatuses: [] });
+    } catch (e) {
+      console.error("Failed to load rooms:", e);
+      setRooms([]); // fallback to empty array
+    }
   }
 
   useEffect(() => {
@@ -28,16 +34,17 @@ export default function Room() {
   }, []);
 
   const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    if (!s) return rooms;
+  const list = Array.isArray(rooms) ? rooms : [];
+  const s = q.trim().toLowerCase();
+  if (!s) return list;
 
-    return rooms.filter((r) => {
-      return (
-        String(r.room_number).toLowerCase().includes(s) ||
-        String(r.type_name).toLowerCase().includes(s)
-      );
-    });
-  }, [rooms, q]);
+  return list.filter((r) => {
+    return (
+      String(r.room_number || "").toLowerCase().includes(s) ||
+      String(r.type_name || "").toLowerCase().includes(s)
+    );
+  });
+}, [rooms, q]);
 
   async function createRoom() {
     // prompt-based so we don't alter your UI/CSS
@@ -51,7 +58,7 @@ export default function Room() {
     if (!room_type_id) return;
 
     const statusLabel = lookups.roomStatuses
-      .map((s) => `${s.status_id}: ${s.status_name}`)
+      .map((s) => `${s.room_status_id}: ${s.status_name}`)
       .join("\n");
     const status_id = window.prompt(`Enter status_id:\n${statusLabel}`);
     if (!status_id) return;
@@ -75,7 +82,7 @@ export default function Room() {
     await loadAll();
   }
 
-  async function editRoom(r) {
+    async function editRoom(r) {
     const room_number = window.prompt("Room Number:", r.room_number);
     if (!room_number) return;
 
@@ -88,12 +95,15 @@ export default function Room() {
     );
     if (!room_type_id) return;
 
+    // ✅ FIXED: correct key is room_status_id
     const statusLabel = lookups.roomStatuses
-      .map((s) => `${s.status_id}: ${s.status_name}`)
+      .map((s) => `${s.room_status_id}: ${s.status_name}`)
       .join("\n");
+
+    // ✅ FIXED: current value should be r.room_status_id
     const status_id = window.prompt(
-      `status_id (current: ${r.status_id})\n${statusLabel}`,
-      String(r.status_id)
+      `status_id (current: ${r.room_status_id})\n${statusLabel}`,
+      String(r.room_status_id)
     );
     if (!status_id) return;
 
@@ -103,6 +113,7 @@ export default function Room() {
       body: JSON.stringify({
         room_number: room_number.trim(),
         room_type_id: Number(room_type_id),
+        // ✅ FIXED: backend expects status_id
         status_id: Number(status_id),
       }),
     });
