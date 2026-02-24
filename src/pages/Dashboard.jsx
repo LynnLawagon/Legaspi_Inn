@@ -4,17 +4,14 @@ import Chart from "chart.js/auto";
 const API_BASE = "http://localhost:5000/api";
 
 export default function Dashboard() {
-  // ✅ damages must be inside the component
   const [damages, setDamages] = useState([]);
 
-  // ✅ dashboard room state
   const [dash, setDash] = useState({
     totalRooms: 0,
     statusCounts: [],
     roomList: [],
   });
 
-  // ✅ inventory dashboard state
   const [inv, setInv] = useState({
     summary: {
       totalItems: 0,
@@ -39,7 +36,6 @@ export default function Dashboard() {
     }
   }
 
-  // ✅ load rooms + inventory dashboard data
   useEffect(() => {
     (async () => {
       try {
@@ -69,13 +65,12 @@ export default function Dashboard() {
           },
           lowStockItems: Array.isArray(lowStockItems) ? lowStockItems : [],
         });
+
+        loadDamages();
       } catch (e) {
         console.error("Dashboard load failed:", e);
       }
     })();
-
-    // load damages too
-    loadDamages();
   }, []);
 
   const countsMap = useMemo(() => {
@@ -91,7 +86,6 @@ export default function Dashboard() {
   const labels = useMemo(() => dash.statusCounts.map((s) => s.status_name), [dash.statusCounts]);
   const values = useMemo(() => dash.statusCounts.map((s) => Number(s.count) || 0), [dash.statusCounts]);
 
-  // ✅ chart effect (no duplicates)
   useEffect(() => {
     const canvas = document.getElementById("roomStatusChart");
     if (!canvas) return;
@@ -106,6 +100,7 @@ export default function Dashboard() {
     chartRef.current = new Chart(ctx, {
       type: "doughnut",
       data: {
+        labels,
         datasets: [
           {
             data: values,
@@ -143,7 +138,6 @@ export default function Dashboard() {
 
   return (
     <>
-      {/* Summary Cards */}
       <section className="summary-cards">
         <div className="cards-row">
           <a href="/room" className="card">
@@ -182,7 +176,6 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* Main Dashboard */}
       <section className="dashboard-main">
         <a href="/room" className="chart-link">
           <div className="chart-section">
@@ -205,8 +198,7 @@ export default function Dashboard() {
                 {dash.roomList.map((r) => (
                   <li key={r.room_id} data-status={String(r.status_name || "").toLowerCase()}>
                     <span className={`dot ${statusToDotClass(r.status_name)}`} />
-                    {r.room_number}{" "}
-                    <small>{r.type_name} - ₱{r.base_rate}</small>
+                    {r.room_number} <small>{r.type_name} - ₱{r.base_rate}</small>
                   </li>
                 ))}
               </ul>
@@ -215,7 +207,6 @@ export default function Dashboard() {
         </a>
 
         <div className="tables-section">
-          {/* Low Stock Items */}
           <a href="/inventory" className="card-link">
             <div className="table-card">
               <h3>Low Stock Item</h3>
@@ -246,7 +237,6 @@ export default function Dashboard() {
             </div>
           </a>
 
-          {/* ✅ Damages (DB Connected) */}
           <div className="table-card">
             <h3>Damages</h3>
 
@@ -273,9 +263,7 @@ export default function Dashboard() {
                       <td>{d.item_name}</td>
                       <td>{d.damage_status}</td>
                       <td>₱{Number(d.charge_amount || 0).toFixed(2)}</td>
-                      <td>
-                        {d.guest_name} / {d.room_number}
-                      </td>
+                      <td>{d.guest_name} / {d.room_number}</td>
                     </tr>
                   ))
                 )}
