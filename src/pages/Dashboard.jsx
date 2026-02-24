@@ -193,9 +193,10 @@ export default function Dashboard() {
             borderWidth: 0,
             backgroundColor: labels.map((name) => {
               const s = String(name || "").toLowerCase();
-              if (s.includes("avail")) return "#2ecc71";
+              if (s.includes("not")) return "#e74c3c";
               if (s.includes("clean")) return "#f1c40f";
-              return "#e74c3c";
+              if (s.includes("avail")) return "#2ecc71";
+              return "#211817";
             }),
           },
         ],
@@ -217,9 +218,11 @@ export default function Dashboard() {
 
   function statusToDotClass(statusName) {
     const s = String(statusName || "").toLowerCase();
-    if (s.includes("avail")) return "green";
+    if (s.includes("not")) return "red";
     if (s.includes("clean")) return "yellow";
-    return "red";
+    if (s.includes("avail")) return "green";
+
+    return "gray";
   }
 
   return (
@@ -232,7 +235,7 @@ export default function Dashboard() {
             padding: "12px 14px",
             borderRadius: 12,
             background: "rgba(192,57,43,0.10)",
-            color: "#c0392b",
+            color: "##ab1100",
             fontWeight: 600,
           }}
         >
