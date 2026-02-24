@@ -4,12 +4,7 @@ const API_BASE = "http://localhost:5000/api";
 
 export default function Inventory() {
   const [items, setItems] = useState([]);
-  const [lookups, setLookups] = useState({
-    categories: [],
-    types: [],
-    statuses: [], // optional, not used for editing anymore
-  });
-
+  const [lookups, setLookups] = useState({ categories: [], types: [] });
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -46,11 +41,12 @@ export default function Inventory() {
       setLookups({
         categories: Array.isArray(lookupsJson.categories) ? lookupsJson.categories : [],
         types: Array.isArray(lookupsJson.types) ? lookupsJson.types : [],
-        statuses: Array.isArray(lookupsJson.statuses) ? lookupsJson.statuses : [],
       });
     } catch (e) {
       console.error(e);
       alert(e.message || "Failed to load inventory data");
+      setItems([]);
+      setLookups({ categories: [], types: [] });
     } finally {
       setLoading(false);
     }
@@ -65,7 +61,7 @@ export default function Inventory() {
     if (!s) return items;
 
     return items.filter((x) =>
-      `${x.name} ${x.category_name} ${x.type_name} ${x.invstat_name}`
+      `${x.item_name} ${x.category_name} ${x.type_name} ${x.status_name}`
         .toLowerCase()
         .includes(s)
     );
@@ -84,15 +80,8 @@ export default function Inventory() {
   function openMenuForItem(e, it) {
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
-
     selectedRef.current = it;
-
-    setMenu({
-      open: true,
-      inv_id: it.inv_id,
-      top: rect.bottom + 8,
-      left: rect.right - 160,
-    });
+    setMenu({ open: true, inv_id: it.inv_id, top: rect.bottom + 8, left: rect.right - 160 });
   }
 
   useEffect(() => {
@@ -104,8 +93,17 @@ export default function Inventory() {
   }, []);
 
   async function createItem() {
-    const name = window.prompt("Item Name:");
-    if (!name?.trim()) return;
+    const item_name = window.prompt("Item Name:");
+    if (!item_name?.trim()) return;
+
+    // ✅ Quantity FIRST
+    const qtyStr = window.prompt("Quantity:", "0");
+    if (qtyStr == null) return;
+    const quantity = Number(qtyStr);
+    if (!Number.isFinite(quantity) || quantity < 0) {
+      alert("Quantity must be a valid number (0 or higher).");
+      return;
+    }
 
     const category_id = pickFromList(
       "Choose category_id:",
@@ -123,21 +121,11 @@ export default function Inventory() {
     );
     if (!inv_type_id) return;
 
-    const qtyStr = window.prompt("Quantity:", "0");
-    if (qtyStr == null) return;
-    const quantity = Number(qtyStr);
-
-    if (!Number.isFinite(quantity) || quantity < 0) {
-      alert("Quantity must be a valid number (0 or higher).");
-      return;
-    }
-
-    // IMPORTANT: do NOT send invstat_id anymore
     const res = await fetch(`${API_BASE}/inventory`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: name.trim(),
+        item_name: item_name.trim(),
         category_id: Number(category_id),
         inv_type_id: Number(inv_type_id),
         quantity,
@@ -154,15 +142,24 @@ export default function Inventory() {
   }
 
   async function editItem(it) {
-    const name = window.prompt("Item Name:", it.name);
-    if (!name?.trim()) return;
+    const item_name = window.prompt("Item Name:", it.item_name ?? "");
+    if (!item_name?.trim()) return;
+
+    // ✅ Quantity FIRST
+    const qtyStr = window.prompt("Quantity:", String(it.quantity ?? 0));
+    if (qtyStr == null) return;
+    const quantity = Number(qtyStr);
+    if (!Number.isFinite(quantity) || quantity < 0) {
+      alert("Quantity must be a valid number (0 or higher).");
+      return;
+    }
 
     const category_id = pickFromList(
       `Choose category_id (current: ${it.category_id}):`,
       lookups.categories,
       "category_id",
       "category_name",
-      String(it.category_id)
+      String(it.category_id ?? "")
     );
     if (!category_id) return;
 
@@ -171,25 +168,15 @@ export default function Inventory() {
       lookups.types,
       "inv_type_id",
       "type_name",
-      String(it.inv_type_id)
+      String(it.inv_type_id ?? "")
     );
     if (!inv_type_id) return;
 
-    const qtyStr = window.prompt("Quantity:", String(it.quantity));
-    if (qtyStr == null) return;
-
-    const quantity = Number(qtyStr);
-    if (!Number.isFinite(quantity) || quantity < 0) {
-      alert("Quantity must be a valid number (0 or higher).");
-      return;
-    }
-
-    // IMPORTANT: do NOT send invstat_id anymore
     const res = await fetch(`${API_BASE}/inventory/${it.inv_id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: name.trim(),
+        item_name: item_name.trim(),
         category_id: Number(category_id),
         inv_type_id: Number(inv_type_id),
         quantity,
@@ -206,15 +193,13 @@ export default function Inventory() {
   }
 
   async function deleteItem(it) {
-    if (!window.confirm(`Delete "${it.name}"?`)) return;
+    if (!window.confirm(`Delete "${it.item_name}"?`)) return;
 
-    const res = await fetch(`${API_BASE}/inventory/${it.inv_id}`, {
-      method: "DELETE",
-    });
+    const res = await fetch(`${API_BASE}/inventory/${it.inv_id}`, { method: "DELETE" });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      alert(err.message || "Failed to delete item (maybe referenced by other tables).");
+      alert(err.message || "Failed to delete item");
       return;
     }
 
@@ -224,10 +209,7 @@ export default function Inventory() {
   return (
     <>
       {menu.open && (
-        <div
-          onClick={closeMenu}
-          style={{ position: "fixed", inset: 0, background: "transparent", zIndex: 99998 }}
-        />
+        <div onClick={closeMenu} style={{ position: "fixed", inset: 0, zIndex: 99998 }} />
       )}
 
       {menu.open && (
@@ -270,7 +252,6 @@ export default function Inventory() {
 
       <header className="top-bar inv-topbar">
         <h1 className="page-title">Inventory</h1>
-
         <div className="inv-actions">
           <div className="search-wrap">
             <img src="/assets/images/search.png" alt="search" />
@@ -309,14 +290,11 @@ export default function Inventory() {
                 <>
                   {filtered.map((it) => (
                     <tr key={it.inv_id}>
-                      <td>{it.name}</td>
+                      <td>{it.item_name}</td>
                       <td>{it.category_name}</td>
                       <td>{it.type_name}</td>
                       <td>{it.quantity}</td>
-
-                      {/* IMPORTANT: show from DB */}
-                      <td>{it.invstat_name || "-"}</td>
-
+                      <td>{it.status_name}</td>
                       <td className="td-action">
                         <button
                           onClick={(e) => openMenuForItem(e, it)}
