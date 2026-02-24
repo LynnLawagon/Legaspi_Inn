@@ -15,11 +15,18 @@ router.get("/lookups", async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT g.guest_id, g.guest_name, g.contact, g.age, g.gender_id, ge.gender_name, g.dob
-      FROM guests g
-      LEFT JOIN gender ge ON ge.gender_id = g.gender_id
-      ORDER BY g.guest_id DESC
-    `);
+    SELECT
+      g.guest_id,
+      g.guest_name,
+      g.contact,
+      g.age,
+      g.gender_id,
+      ge.gender_name,
+      DATE_FORMAT(g.dob, '%Y-%m-%d') AS dob
+    FROM guests g
+    LEFT JOIN gender ge ON ge.gender_id = g.gender_id
+    ORDER BY g.guest_id DESC
+  `);
     res.json(Array.isArray(rows) ? rows : []);
   } catch (e) {
     console.error(e);

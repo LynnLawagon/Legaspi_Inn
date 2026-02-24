@@ -279,7 +279,7 @@ export default function Guest() {
                       <td>{g.contact}</td>
                       <td>{g.age}</td>
                       <td>{g.gender_name}</td>
-                      <td>{g.dob}</td>
+                      <td>{g.dob || ""}</td>
                       <td className="td-action">
                         <button
                           onClick={(e) => openMenuForGuest(e, g)}
