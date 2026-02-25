@@ -1,52 +1,38 @@
 import { useEffect, useMemo, useState } from "react";
-import { apiFetch } from "../lib/api"; // adjust path if needed
+import { apiFetch } from "../lib/api";
 
 export default function Room() {
   const [rooms, setRooms] = useState([]);
   const [lookups, setLookups] = useState({ roomTypes: [], roomStatuses: [] });
   const [q, setQ] = useState("");
-
-  // for the "..." actions menu
   const [openMenuId, setOpenMenuId] = useState(null);
 
   async function loadAll() {
     try {
-      const [roomsRes, lookupsRes] = await Promise.all([
-              apiFetch("/rooms"),
-              apiFetch("/rooms/lookups"),
+      const [roomsJson, lookupsJson] = await Promise.all([
+        apiFetch("/rooms"),
+        apiFetch("/rooms/lookups"),
       ]);
-
-      const roomsJson = await roomsRes.json();
-      const lookupsJson = await lookupsRes.json();
-
-      // 🔴 IMPORTANT FIX: force array
       setRooms(Array.isArray(roomsJson) ? roomsJson : []);
-      setLookups(lookupsJson || { roomTypes: [], roomStatuses: [] });
+      setLookups(lookupsJson);
     } catch (e) {
-      console.error("Failed to load rooms:", e);
-      setRooms([]); // fallback to empty array
+      console.error(e);
+      alert(e.message || "Failed to load rooms");
     }
   }
 
-  useEffect(() => {
-    loadAll();
-  }, []);
+  useEffect(() => { loadAll(); }, []);
 
   const filtered = useMemo(() => {
-  const list = Array.isArray(rooms) ? rooms : [];
-  const s = q.trim().toLowerCase();
-  if (!s) return list;
-
-  return list.filter((r) => {
-    return (
-      String(r.room_number || "").toLowerCase().includes(s) ||
-      String(r.type_name || "").toLowerCase().includes(s)
+    const s = q.trim().toLowerCase();
+    if (!s) return rooms;
+    return rooms.filter((r) =>
+      String(r.room_number).toLowerCase().includes(s) ||
+      String(r.type_name).toLowerCase().includes(s)
     );
-  });
-}, [rooms, q]);
+  }, [rooms, q]);
 
   async function createRoom() {
-    // prompt-based so we don't alter your UI/CSS
     const room_number = window.prompt("Enter Room Number (e.g. R16):");
     if (!room_number) return;
 
@@ -56,32 +42,29 @@ export default function Room() {
     const room_type_id = window.prompt(`Enter room_type_id:\n${typeLabel}`);
     if (!room_type_id) return;
 
+    // FIX: use room_status_id (not status_id)
     const statusLabel = lookups.roomStatuses
       .map((s) => `${s.room_status_id}: ${s.status_name}`)
       .join("\n");
     const status_id = window.prompt(`Enter status_id:\n${statusLabel}`);
     if (!status_id) return;
 
-    const res = await apiFetch("/rooms", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        room_number: room_number.trim(),
-        room_type_id: Number(room_type_id),
-        status_id: Number(status_id),
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      alert(err.message || "Failed to create room");
-      return;
+    try {
+      await apiFetch("/rooms", {
+        method: "POST",
+        body: JSON.stringify({
+          room_number: room_number.trim(),
+          room_type_id: Number(room_type_id),
+          status_id: Number(status_id),
+        }),
+      });
+      await loadAll();
+    } catch (e) {
+      alert(e.message || "Failed to create room");
     }
-
-    await loadAll();
   }
 
-    async function editRoom(r) {
+  async function editRoom(r) {
     const room_number = window.prompt("Room Number:", r.room_number);
     if (!room_number) return;
 
@@ -94,59 +77,46 @@ export default function Room() {
     );
     if (!room_type_id) return;
 
-    // ✅ FIXED: correct key is room_status_id
+    // FIX: use room_status_id (not status_id)
     const statusLabel = lookups.roomStatuses
       .map((s) => `${s.room_status_id}: ${s.status_name}`)
       .join("\n");
-
-    // ✅ FIXED: current value should be r.room_status_id
     const status_id = window.prompt(
-      `status_id (current: ${r.room_status_id})\n${statusLabel}`,
-      String(r.room_status_id)
+      `status_id (current: ${r.room_status_id})\n${statusLabel}`,   // FIX
+      String(r.room_status_id)                                        // FIX
     );
     if (!status_id) return;
 
-    const res = await apiFetch(`/rooms/${r.room_id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        room_number: room_number.trim(),
-        room_type_id: Number(room_type_id),
-        // ✅ FIXED: backend expects status_id
-        status_id: Number(status_id),
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      alert(err.message || "Failed to update room");
-      return;
+    try {
+      await apiFetch(`/rooms/${r.room_id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          room_number: room_number.trim(),
+          room_type_id: Number(room_type_id),
+          status_id: Number(status_id),
+        }),
+      });
+      await loadAll();
+    } catch (e) {
+      alert(e.message || "Failed to update room");
     }
-
-    await loadAll();
   }
 
   async function deleteRoom(r) {
-    const ok = window.confirm(`Delete room ${r.room_number}?`);
-    if (!ok) return;
+    if (!window.confirm(`Delete room ${r.room_number}?`)) return;
 
-    const res = await apiFetch(`/rooms/${r.room_id}`, { method: "DELETE" });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      alert(err.message || "Failed to delete room");
-      return;
+    try {
+      await apiFetch(`/rooms/${r.room_id}`, { method: "DELETE" });
+      await loadAll();
+    } catch (e) {
+      alert(e.message || "Failed to delete room");
     }
-
-    await loadAll();
   }
 
   return (
     <>
-      {/* top bar */}
       <header className="top-bar room-topbar">
         <h1 className="page-title">Room</h1>
-
         <div className="room-actions">
           <div className="search-wrap">
             <img src="/assets/images/search.png" alt="search" />
@@ -157,29 +127,20 @@ export default function Room() {
               onChange={(e) => setQ(e.target.value)}
             />
           </div>
-
-          {/* Optional: add button without changing CSS much */}
           <button
             type="button"
             onClick={createRoom}
             style={{
-              border: "none",
-              borderRadius: 999,
-              padding: "10px 14px",
-              cursor: "pointer",
-              background: "rgba(217,217,217,0.9)",
-              color: "#2C0735",
-              fontWeight: 700,
+              border: "none", borderRadius: 999, padding: "10px 14px", cursor: "pointer",
+              background: "rgba(217,217,217,0.9)", color: "#2C0735", fontWeight: 700,
               boxShadow: "0 8px 18px rgba(0,0,0,0.10)",
             }}
-            title="Add Room"
           >
             + New
           </button>
         </div>
       </header>
 
-      {/* table card */}
       <section className="room-card">
         <div className="room-table-wrap">
           <table className="room-table">
@@ -191,7 +152,6 @@ export default function Room() {
               <col style={{ width: "180px" }} />
               <col style={{ width: "70px" }} />
             </colgroup>
-
             <thead>
               <tr>
                 <th>Room #</th>
@@ -202,7 +162,6 @@ export default function Room() {
                 <th className="th-more">...</th>
               </tr>
             </thead>
-
             <tbody>
               {filtered.map((r) => (
                 <tr key={r.room_id}>
@@ -211,7 +170,6 @@ export default function Room() {
                   <td>{Number(r.base_rate).toFixed(2)}</td>
                   <td>{r.capacity}</td>
                   <td>{r.status_name}</td>
-
                   <td className="td-more" style={{ position: "relative" }}>
                     <img
                       src="/assets/images/more.png"
@@ -219,52 +177,24 @@ export default function Room() {
                       onClick={() => setOpenMenuId((prev) => (prev === r.room_id ? null : r.room_id))}
                       style={{ cursor: "pointer" }}
                     />
-
                     {openMenuId === r.room_id && (
                       <div
                         style={{
-                          position: "absolute",
-                          right: 10,
-                          top: 30,
-                          background: "#fff",
-                          borderRadius: 10,
-                          boxShadow: "0 10px 22px rgba(0,0,0,0.12)",
-                          overflow: "hidden",
-                          minWidth: 120,
-                          zIndex: 9999,
+                          position: "absolute", right: 10, top: 30, background: "#fff",
+                          borderRadius: 10, boxShadow: "0 10px 22px rgba(0,0,0,0.12)",
+                          overflow: "hidden", minWidth: 120, zIndex: 9999,
                         }}
                         onMouseLeave={() => setOpenMenuId(null)}
                       >
                         <button
-                          onClick={() => {
-                            setOpenMenuId(null);
-                            editRoom(r);
-                          }}
-                          style={{
-                            width: "100%",
-                            padding: "10px 12px",
-                            border: "none",
-                            background: "transparent",
-                            textAlign: "left",
-                            cursor: "pointer",
-                          }}
+                          onClick={() => { setOpenMenuId(null); editRoom(r); }}
+                          style={{ width: "100%", padding: "10px 12px", border: "none", background: "transparent", textAlign: "left", cursor: "pointer" }}
                         >
                           Edit
                         </button>
                         <button
-                          onClick={() => {
-                            setOpenMenuId(null);
-                            deleteRoom(r);
-                          }}
-                          style={{
-                            width: "100%",
-                            padding: "10px 12px",
-                            border: "none",
-                            background: "transparent",
-                            textAlign: "left",
-                            cursor: "pointer",
-                            color: "#b00020",
-                          }}
+                          onClick={() => { setOpenMenuId(null); deleteRoom(r); }}
+                          style={{ width: "100%", padding: "10px 12px", border: "none", background: "transparent", textAlign: "left", cursor: "pointer", color: "#b00020" }}
                         >
                           Delete
                         </button>
@@ -273,12 +203,9 @@ export default function Room() {
                   </td>
                 </tr>
               ))}
-
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: 18, opacity: 0.7 }}>
-                    No rooms found
-                  </td>
+                  <td colSpan={6} style={{ textAlign: "center", padding: 18, opacity: 0.7 }}>No rooms found</td>
                 </tr>
               )}
             </tbody>

@@ -35,7 +35,8 @@ router.get("/", async (req, res) => {
 });
 
 router.post("/", async (req, res) => {
-  const { trans_id, inv_id, charge_amount, damage_status_id, date_reported } = req.body;
+  const { trans_id, inv_id
+    , charge_amount, damage_status_id, date_reported } = req.body;
   if (!trans_id || !inv_id) return res.status(400).json({ message: "trans_id and inv_id required" });
 
   try {

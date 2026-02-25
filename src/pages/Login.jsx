@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-
-const API_BASE = "/api";
+import { apiFetch } from "../lib/api";
 
 export default function Login() {
   const nav = useNavigate();
@@ -23,34 +22,17 @@ export default function Login() {
 
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
+      const data = await apiFetch("/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: username.trim(),
-          password,
-        }),
+        body: JSON.stringify({ username: username.trim(), password }),
       });
 
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        setErrMsg(data?.message || `Login failed (${res.status})`);
-        return;
-      }
-
-      // Expected backend response:
-      // { ok:true, token:"...", user:{ user_id, username, role_id, gender_id, shift_start, shift_end } }
-      if (data?.token) {
-        localStorage.setItem("token", data.token);
-      }
-      if (data?.user) {
-        localStorage.setItem("user", JSON.stringify(data.user));
-      }
+      if (data?.token) localStorage.setItem("token", data.token);
+      if (data?.user) localStorage.setItem("user", JSON.stringify(data.user));
 
       nav("/dashboard", { replace: true });
     } catch (e) {
-      setErrMsg("Failed to fetch (backend down / proxy/CORS / wrong URL).");
+      setErrMsg(e?.message || "Login failed");
     } finally {
       setSubmitting(false);
     }
@@ -72,7 +54,6 @@ export default function Login() {
           <input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="Enter username"
             autoComplete="username"
             style={{ width: "100%", height: 40, padding: "0 10px", borderRadius: 10, border: "1px solid #ddd" }}
           />
@@ -84,24 +65,12 @@ export default function Login() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter password"
             autoComplete="current-password"
             style={{ width: "100%", height: 40, padding: "0 10px", borderRadius: 10, border: "1px solid #ddd" }}
           />
         </label>
 
-        <button
-          type="submit"
-          disabled={submitting}
-          style={{
-            height: 42,
-            borderRadius: 10,
-            border: 0,
-            cursor: "pointer",
-            fontWeight: 700,
-            opacity: submitting ? 0.7 : 1,
-          }}
-        >
+        <button type="submit" disabled={submitting} style={{ height: 42, borderRadius: 10, border: 0, cursor: "pointer", fontWeight: 700 }}>
           {submitting ? "Logging in..." : "Login"}
         </button>
 

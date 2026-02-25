@@ -11,30 +11,18 @@ export default function Inventory() {
   const selectedRef = useRef(null);
 
   const menuBtnStyle = {
-    display: "block",
-    width: "100%",
-    textAlign: "left",
-    padding: "10px 14px",
-    border: "none",
-    background: "transparent",
-    cursor: "pointer",
-    borderRadius: 12,
-    fontSize: 14,
+    display: "block", width: "100%", textAlign: "left",
+    padding: "10px 14px", border: "none", background: "transparent",
+    cursor: "pointer", borderRadius: 12, fontSize: 14,
   };
 
   async function loadAll() {
     setLoading(true);
     try {
-        const [itemsRes, lookupsRes] = await Promise.all([
-          apiFetch("/inventory"),
-          apiFetch("/inventory/lookups"),
-        ]);
-
-      if (!itemsRes.ok) throw new Error("Failed to load inventory list");
-      if (!lookupsRes.ok) throw new Error("Failed to load inventory lookups");
-
-      const itemsJson = await itemsRes.json();
-      const lookupsJson = await lookupsRes.json();
+      const [itemsJson, lookupsJson] = await Promise.all([
+        apiFetch("/inventory"),
+        apiFetch("/inventory/lookups"),
+      ]);
 
       setItems(Array.isArray(itemsJson) ? itemsJson : []);
       setLookups({
@@ -44,21 +32,17 @@ export default function Inventory() {
     } catch (e) {
       console.error(e);
       alert(e.message || "Failed to load inventory data");
-      setItems([]);
-      setLookups({ categories: [], types: [] });
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    loadAll();
-  }, []);
+  useEffect(() => { loadAll(); }, []);
 
+  // FIX: use item_name (not name)
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return items;
-
     return items.filter((x) =>
       `${x.item_name} ${x.category_name} ${x.type_name} ${x.status_name}`
         .toLowerCase()
@@ -84,9 +68,7 @@ export default function Inventory() {
   }
 
   useEffect(() => {
-    function onKey(e) {
-      if (e.key === "Escape") closeMenu();
-    }
+    function onKey(e) { if (e.key === "Escape") closeMenu(); }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
@@ -95,155 +77,105 @@ export default function Inventory() {
     const item_name = window.prompt("Item Name:");
     if (!item_name?.trim()) return;
 
-    // ✅ Quantity FIRST
+    const category_id = pickFromList("Choose category_id:", lookups.categories, "category_id", "category_name");
+    if (!category_id) return;
+
+    const inv_type_id = pickFromList("Choose inv_type_id:", lookups.types, "inv_type_id", "type_name");
+    if (!inv_type_id) return;
+
     const qtyStr = window.prompt("Quantity:", "0");
     if (qtyStr == null) return;
     const quantity = Number(qtyStr);
+
     if (!Number.isFinite(quantity) || quantity < 0) {
       alert("Quantity must be a valid number (0 or higher).");
       return;
     }
 
-    const category_id = pickFromList(
-      "Choose category_id:",
-      lookups.categories,
-      "category_id",
-      "category_name"
-    );
-    if (!category_id) return;
-
-    const inv_type_id = pickFromList(
-      "Choose inv_type_id:",
-      lookups.types,
-      "inv_type_id",
-      "type_name"
-    );
-    if (!inv_type_id) return;
-
-    const res = await apiFetch("/inventory", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        item_name: item_name.trim(),
-        category_id: Number(category_id),
-        inv_type_id: Number(inv_type_id),
-        quantity,
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      alert(err.message || "Failed to create item");
-      return;
+    try {
+      await apiFetch("/inventory", {
+        method: "POST",
+        body: JSON.stringify({
+          item_name: item_name.trim(),      // FIX: item_name not name
+          category_id: Number(category_id),
+          inv_type_id: Number(inv_type_id),
+          quantity,
+        }),
+      });
+      await loadAll();
+    } catch (e) {
+      alert(e.message || "Failed to create item");
     }
-
-    await loadAll();
   }
 
   async function editItem(it) {
-    const item_name = window.prompt("Item Name:", it.item_name ?? "");
+    const item_name = window.prompt("Item Name:", it.item_name);    // FIX
     if (!item_name?.trim()) return;
-
-    // ✅ Quantity FIRST
-    const qtyStr = window.prompt("Quantity:", String(it.quantity ?? 0));
-    if (qtyStr == null) return;
-    const quantity = Number(qtyStr);
-    if (!Number.isFinite(quantity) || quantity < 0) {
-      alert("Quantity must be a valid number (0 or higher).");
-      return;
-    }
 
     const category_id = pickFromList(
       `Choose category_id (current: ${it.category_id}):`,
-      lookups.categories,
-      "category_id",
-      "category_name",
-      String(it.category_id ?? "")
+      lookups.categories, "category_id", "category_name", String(it.category_id)
     );
     if (!category_id) return;
 
     const inv_type_id = pickFromList(
       `Choose inv_type_id (current: ${it.inv_type_id}):`,
-      lookups.types,
-      "inv_type_id",
-      "type_name",
-      String(it.inv_type_id ?? "")
+      lookups.types, "inv_type_id", "type_name", String(it.inv_type_id)
     );
     if (!inv_type_id) return;
 
-    const res = await apiFetch(`/inventory/${it.inv_id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        item_name: item_name.trim(),
-        category_id: Number(category_id),
-        inv_type_id: Number(inv_type_id),
-        quantity,
-      }),
-    });
+    const qtyStr = window.prompt("Quantity:", String(it.quantity));
+    if (qtyStr == null) return;
+    const quantity = Number(qtyStr);
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      alert(err.message || "Failed to update item");
+    if (!Number.isFinite(quantity) || quantity < 0) {
+      alert("Quantity must be a valid number (0 or higher).");
       return;
     }
 
-    await loadAll();
+    try {
+      await apiFetch(`/inventory/${it.inv_id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          item_name: item_name.trim(),      // FIX: item_name not name
+          category_id: Number(category_id),
+          inv_type_id: Number(inv_type_id),
+          quantity,
+        }),
+      });
+      await loadAll();
+    } catch (e) {
+      alert(e.message || "Failed to update item");
+    }
   }
 
   async function deleteItem(it) {
-    if (!window.confirm(`Delete "${it.item_name}"?`)) return;
+    if (!window.confirm(`Delete "${it.item_name}"?`)) return;    // FIX
 
-    const res = await apiFetch(`/inventory/${it.inv_id}`, { method: "DELETE" });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      alert(err.message || "Failed to delete item");
-      return;
+    try {
+      await apiFetch(`/inventory/${it.inv_id}`, { method: "DELETE" });
+      await loadAll();
+    } catch (e) {
+      alert(e.message || "Failed to delete item (maybe referenced by other tables).");
     }
-
-    await loadAll();
   }
 
   return (
     <>
       {menu.open && (
-        <div onClick={closeMenu} style={{ position: "fixed", inset: 0, zIndex: 99998 }} />
+        <div onClick={closeMenu} style={{ position: "fixed", inset: 0, background: "transparent", zIndex: 99998 }} />
       )}
 
       {menu.open && (
-        <div
-          style={{
-            position: "fixed",
-            top: menu.top,
-            left: menu.left,
-            background: "#fff",
-            borderRadius: 16,
-            boxShadow: "0 18px 40px rgba(0,0,0,0.18)",
-            padding: 8,
-            zIndex: 99999,
-            minWidth: 160,
-          }}
-        >
-          <button
-            onClick={() => {
-              const it = selectedRef.current;
-              closeMenu();
-              if (it) editItem(it);
-            }}
-            style={menuBtnStyle}
-          >
+        <div style={{
+          position: "fixed", top: menu.top, left: menu.left, background: "#fff",
+          borderRadius: 16, boxShadow: "0 18px 40px rgba(0,0,0,0.18)", padding: 8,
+          zIndex: 99999, minWidth: 160,
+        }}>
+          <button onClick={() => { const it = selectedRef.current; closeMenu(); if (it) editItem(it); }} style={menuBtnStyle}>
             Edit
           </button>
-
-          <button
-            onClick={() => {
-              const it = selectedRef.current;
-              closeMenu();
-              if (it) deleteItem(it);
-            }}
-            style={{ ...menuBtnStyle, color: "#c0392b" }}
-          >
+          <button onClick={() => { const it = selectedRef.current; closeMenu(); if (it) deleteItem(it); }} style={{ ...menuBtnStyle, color: "#c0392b" }}>
             Delete
           </button>
         </div>
@@ -277,36 +209,27 @@ export default function Inventory() {
                 <th>...</th>
               </tr>
             </thead>
-
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: 18, opacity: 0.7 }}>
-                    Loading...
-                  </td>
+                  <td colSpan={6} style={{ textAlign: "center", padding: 18, opacity: 0.7 }}>Loading...</td>
                 </tr>
               ) : (
                 <>
                   {filtered.map((it) => (
                     <tr key={it.inv_id}>
-                      <td>{it.item_name}</td>
+                      <td>{it.item_name}</td>          {/* FIX: item_name */}
                       <td>{it.category_name}</td>
                       <td>{it.type_name}</td>
                       <td>{it.quantity}</td>
-                      <td>{it.status_name}</td>
+                      <td>{it.status_name || "—"}</td>  {/* FIX: status_name (computed) */}
                       <td className="td-action">
                         <button
                           onClick={(e) => openMenuForItem(e, it)}
                           style={{
-                            background: "transparent",
-                            border: "none",
-                            fontSize: "22px",
-                            cursor: "pointer",
-                            fontWeight: "900",
-                            lineHeight: "1",
-                            padding: "4px 10px",
-                            borderRadius: 10,
-                            color: "#2C0735",
+                            background: "transparent", border: "none", fontSize: "22px",
+                            cursor: "pointer", fontWeight: "900", lineHeight: "1",
+                            padding: "4px 10px", borderRadius: 10, color: "#2C0735",
                           }}
                           title="More"
                         >
@@ -315,12 +238,9 @@ export default function Inventory() {
                       </td>
                     </tr>
                   ))}
-
                   {filtered.length === 0 && (
                     <tr>
-                      <td colSpan={6} style={{ textAlign: "center", padding: 18, opacity: 0.7 }}>
-                        No items found
-                      </td>
+                      <td colSpan={6} style={{ textAlign: "center", padding: 18, opacity: 0.7 }}>No items found</td>
                     </tr>
                   )}
                 </>

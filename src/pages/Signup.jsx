@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-
-const API_BASE = "/api";
+import { apiFetch } from "../lib/api";
 
 export default function Signup() {
   const nav = useNavigate();
@@ -30,23 +29,22 @@ export default function Signup() {
       setErrMsg("");
       setLoadingMeta(true);
       try {
-        const [gRes, rRes] = await Promise.all([
-          fetch(`${API_BASE}/meta/genders`),
-          fetch(`${API_BASE}/meta/roles`),
+        const [gData, rData] = await Promise.all([
+          apiFetch("/meta/genders"),
+          apiFetch("/meta/roles"),
         ]);
 
-        if (!gRes.ok) throw new Error(`Failed to load genders (${gRes.status})`);
-        if (!rRes.ok) throw new Error(`Failed to load roles (${rRes.status})`);
-
-        const gendersData = await gRes.json();
-        const rolesData = await rRes.json();
-
         if (!alive) return;
-        setGenders(Array.isArray(gendersData) ? gendersData : []);
-        setRoles(Array.isArray(rolesData) ? rolesData : []);
+
+        setGenders(Array.isArray(gData) ? gData : []);
+        setRoles(Array.isArray(rData) ? rData : []);
+
+        // defaults
+        if (Array.isArray(gData) && gData[0]) setGenderId(String(gData[0].gender_id));
+        if (Array.isArray(rData) && rData[0]) setRoleId(String(rData[0].role_id));
       } catch (e) {
         if (!alive) return;
-        setErrMsg(e?.message || "Failed to fetch meta data");
+        setErrMsg(e?.message || "Failed to load genders/roles");
       } finally {
         if (!alive) return;
         setLoadingMeta(false);
@@ -54,9 +52,7 @@ export default function Signup() {
     }
 
     loadMeta();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, []);
 
   function validate() {
@@ -66,8 +62,8 @@ export default function Signup() {
     if (password !== confirmPassword) return "Passwords do not match.";
     if (!genderId) return "Please select a gender.";
     if (!roleId) return "Please select a role.";
-    if (!shiftStart) return "Please set time in (shift start).";
-    if (!shiftEnd) return "Please set time out (shift end).";
+    if (!shiftStart) return "Please set time in.";
+    if (!shiftEnd) return "Please set time out.";
     return "";
   }
 
@@ -76,38 +72,26 @@ export default function Signup() {
     setErrMsg("");
 
     const v = validate();
-    if (v) {
-      setErrMsg(v);
-      return;
-    }
+    if (v) return setErrMsg(v);
 
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/signup`, {
+      await apiFetch("/auth/signup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           username: username.trim(),
           password,
           confirmPassword,
           gender_id: Number(genderId),
           role_id: Number(roleId),
-          shift_start: shiftStart, // "HH:MM"
-          shift_end: shiftEnd,     // "HH:MM"
+          shift_start: shiftStart,
+          shift_end: shiftEnd,
         }),
       });
 
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        setErrMsg(data?.message || `Signup failed (${res.status})`);
-        return;
-      }
-
-      // optional: auto redirect to login after success
       nav("/login", { replace: true });
     } catch (e) {
-      setErrMsg("Failed to fetch (backend down / proxy/CORS / wrong URL).");
+      setErrMsg(e?.message || "Signup failed");
     } finally {
       setSubmitting(false);
     }
@@ -132,8 +116,6 @@ export default function Signup() {
             <input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter username"
-              autoComplete="username"
               style={{ width: "100%", height: 40, padding: "0 10px", borderRadius: 10, border: "1px solid #ddd" }}
             />
           </label>
@@ -144,8 +126,6 @@ export default function Signup() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter password"
-              autoComplete="new-password"
               style={{ width: "100%", height: 40, padding: "0 10px", borderRadius: 10, border: "1px solid #ddd" }}
             />
           </label>
@@ -156,8 +136,6 @@ export default function Signup() {
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm password"
-              autoComplete="new-password"
               style={{ width: "100%", height: 40, padding: "0 10px", borderRadius: 10, border: "1px solid #ddd" }}
             />
           </label>
@@ -216,18 +194,7 @@ export default function Signup() {
             </label>
           </div>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            style={{
-              height: 42,
-              borderRadius: 10,
-              border: 0,
-              cursor: "pointer",
-              fontWeight: 700,
-              opacity: submitting ? 0.7 : 1,
-            }}
-          >
+          <button type="submit" disabled={submitting} style={{ height: 42, borderRadius: 10, border: 0, cursor: "pointer", fontWeight: 700 }}>
             {submitting ? "Creating..." : "Create account"}
           </button>
 

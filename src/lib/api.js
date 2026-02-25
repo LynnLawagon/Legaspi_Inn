@@ -1,23 +1,40 @@
-const API_BASE = "http://localhost:5000/api";
+export const API_BASE = "/api";
+
+export function getToken() {
+  return localStorage.getItem("token") || "";
+}
 
 export async function apiFetch(path, options = {}) {
-  const token = localStorage.getItem("token");
+  const token = getToken();
+
+  const headers = {
+    ...(options.headers || {}),
+  };
+
+  const isFormData =
+    typeof FormData !== "undefined" && options.body instanceof FormData;
+
+  if (!isFormData && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  // attach token when available
+  if (token) headers.Authorization = `Bearer ${token}`;
 
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+    headers,
   });
 
-  if (res.status === 401) {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    window.location.href = "/auth";
-    throw new Error("Unauthorized");
+  const data = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    const msg = data?.message || data?.error || `Request failed (${res.status})`;
+    const err = new Error(msg);
+    err.status = res.status;
+    err.data = data;
+    throw err;
   }
 
-  return res;
+  return data;
 }
