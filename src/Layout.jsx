@@ -4,14 +4,14 @@ import { useState } from "react";
 import "./App.css";
 import UserModal from "./components/UserModal";
 import CalculatorModal from "./components/CalculatorModal";
-import { clearSession, getSession } from "./utils/auth";
+import { clearSession, getUser } from "./utils/auth";
 
 export default function Layout() {
   const [userOpen, setUserOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
   const navigate = useNavigate();
 
-  const session = getSession(); // current logged in user
+  const user = getUser(); // ✅ current logged in user
 
   function handleLogout() {
     clearSession();
@@ -29,22 +29,15 @@ export default function Layout() {
         <nav className="menu">
           <ul>
             <li>
-              {/* ✅ FIX: dashboard route is /dashboard */}
               <NavLink to="/dashboard" end>
-                <img
-                  src="/assets/images/sidebar/dashboard.png"
-                  alt="dashboard"
-                />
+                <img src="/assets/images/sidebar/dashboard.png" alt="dashboard" />
                 Dashboard
               </NavLink>
             </li>
 
             <li>
               <NavLink to="/transactions">
-                <img
-                  src="/assets/images/sidebar/transaction.png"
-                  alt="transaction"
-                />
+                <img src="/assets/images/sidebar/transaction.png" alt="transaction" />
                 Transactions
               </NavLink>
             </li>
@@ -65,10 +58,7 @@ export default function Layout() {
 
             <li>
               <NavLink to="/inventory">
-                <img
-                  src="/assets/images/sidebar/inventory.png"
-                  alt="inventory"
-                />
+                <img src="/assets/images/sidebar/inventory.png" alt="inventory" />
                 Inventory
               </NavLink>
             </li>
@@ -88,9 +78,8 @@ export default function Layout() {
           }}
         >
           <img src="/assets/images/user.png" alt="employee" />
-          {session
-            ? `${session.firstName ?? ""} ${session.lastName ?? ""}`.trim() ||
-              "Employee"
+          {user
+            ? `${user.first_name ?? user.firstName ?? ""} ${user.last_name ?? user.lastName ?? ""}`.trim() || "Employee"
             : "Employee"}
         </div>
       </aside>
@@ -120,8 +109,9 @@ export default function Layout() {
         open={userOpen}
         onClose={() => setUserOpen(false)}
         onLogout={handleLogout}
-        user={session}
+        user={user}   // ✅ PASS THE REAL USER
       />
+
       <CalculatorModal open={calcOpen} onClose={() => setCalcOpen(false)} />
     </div>
   );
