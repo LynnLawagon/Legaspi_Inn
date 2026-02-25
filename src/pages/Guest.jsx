@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-
-const API_BASE = "http://localhost:3000/api";
+import { apiFetch } from "../lib/api";
 
 export default function Guest() {
   const [guests, setGuests] = useState([]);
@@ -14,10 +13,10 @@ export default function Guest() {
   async function loadAll() {
     setLoading(true);
     try {
-      const [gRes, lRes] = await Promise.all([
-        fetch(`${API_BASE}/guests`),
-        fetch(`${API_BASE}/guests/lookups`),
-      ]);
+        const [gRes, lRes] = await Promise.all([
+          apiFetch("/guests"),
+          apiFetch("/guests/lookups"),
+        ]);
 
       const g = await gRes.json().catch(() => []);
       const l = await lRes.json().catch(() => ({}));
@@ -95,7 +94,7 @@ export default function Guest() {
     const dob = window.prompt("Date of Birth (YYYY-MM-DD):", "2000-01-01");
     if (!dob) return;
 
-    const res = await fetch(`${API_BASE}/guests`, {
+    const res = await apiFetch("/guests", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -136,7 +135,7 @@ export default function Guest() {
     const dob = window.prompt("Date of Birth (YYYY-MM-DD):", g.dob);
     if (!dob) return;
 
-    const res = await fetch(`${API_BASE}/guests/${g.guest_id}`, {
+    const res = await apiFetch(`/guests/${g.guest_id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -159,7 +158,7 @@ export default function Guest() {
   async function deleteGuest(g) {
     if (!window.confirm(`Delete "${g.guest_name}"?`)) return;
 
-    const res = await fetch(`${API_BASE}/guests/${g.guest_id}`, { method: "DELETE" });
+    const res = await apiFetch(`/guests/${g.guest_id}`, { method: "DELETE" });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));

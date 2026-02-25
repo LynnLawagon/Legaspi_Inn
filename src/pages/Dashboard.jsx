@@ -1,8 +1,7 @@
 // src/pages/Dashboard.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import Chart from "chart.js/auto";
-
-const API_BASE = "http://localhost:3000/api";
+import { apiFetch } from "../lib/api";
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
@@ -29,31 +28,30 @@ export default function Dashboard() {
 
   const chartRef = useRef(null);
 
-  async function fetchJsonOrThrow(url) {
-    const res = await fetch(url);
-    let data = null;
+  async function apiJsonOrThrow(path) {
+  const res = await apiFetch(path);
 
-    // try parse JSON (even errors)
-    try {
-      data = await res.json();
-    } catch {
-      data = null;
-    }
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
 
-    if (!res.ok) {
-      const msg =
-        (data && (data.message || data.error)) ||
-        `${res.status} ${res.statusText}` ||
-        "Request failed";
-      throw new Error(`${url} -> ${msg}`);
-    }
+  if (!res.ok) {
+    const msg =
+      (data && (data.message || data.error)) ||
+      `${res.status} ${res.statusText}` ||
+      "Request failed";
+    throw new Error(`${path} -> ${msg}`);
+  }
 
-    return data;
+  return data;
   }
 
   async function loadDamages() {
     try {
-      const data = await fetchJsonOrThrow(`${API_BASE}/damages?limit=10`);
+      const data = await apiJsonOrThrow(`/damages?limit=10`);
       setDamages(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error("Failed to load damages:", e);
@@ -71,9 +69,9 @@ export default function Dashboard() {
       try {
         // Load everything needed for dashboard
         const [roomsData, invSummary, lowStockItems] = await Promise.all([
-          fetchJsonOrThrow(`${API_BASE}/dashboard/rooms`),
-          fetchJsonOrThrow(`${API_BASE}/inventory/summary`),
-          fetchJsonOrThrow(`${API_BASE}/inventory/low-stock?limit=10`),
+          apiJsonOrThrow("/dashboard/rooms"),
+          apiJsonOrThrow("/inventory/summary"),
+          apiJsonOrThrow("/inventory/low-stock?limit=10"),
         ]);
 
         if (!mounted) return;

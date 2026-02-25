@@ -1,75 +1,48 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 const pool = require("../db");
-
 const router = express.Router();
-const SECRET = process.env.JWT_SECRET || "dev_secret";
 
-// SIGNUP
 router.post("/signup", async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password)
-    return res.status(400).json({ message: "username and password are required" });
+  const {
+    username,
+    password,
+    confirmPassword,
+    role_id,
+    gender_id,
+    shift_start,
+    shift_end,
+  } = req.body;
 
-  try {
-    const user = String(username).trim();
-    const hash = await bcrypt.hash(String(password), 10);
-
-    const [r] = await pool.query(
-      `INSERT INTO users (username, password_hash)
-       VALUES (?, ?)`,
-      [user, hash]
-    );
-
-    res.status(201).json({ user_id: r.insertId });
-  } catch (err) {
-    if (String(err?.code) === "ER_DUP_ENTRY") {
-      return res.status(409).json({ message: "Username already exists" });
-    }
-    console.error(err);
-    res.status(500).json({ message: "Signup failed" });
+  // Validate
+  if (!username || !password || !confirmPassword) {
+    return res.status(400).json({ message: "Username and password are required" });
   }
-});
-
-// LOGIN
-router.post("/login", async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password)
-    return res.status(400).json({ message: "Missing credentials" });
+  if (password !== confirmPassword) {
+    return res.status(400).json({ message: "Passwords do not match" });
+  }
+  if (!role_id || !gender_id || !shift_start || !shift_end) {
+    return res.status(400).json({ message: "Role, gender, and shift are required" });
+  }
 
   try {
-    const [rows] = await pool.query(
-      `SELECT user_id, username, password_hash, role_id
-       FROM users
-       WHERE username = ?
-       LIMIT 1`,
-      [String(username).trim()]
+    // username unique
+    const [exists] = await pool.query("SELECT user_id FROM users WHERE username=?", [username]);
+    if (exists.length) return res.status(409).json({ message: "Username already exists" });
+
+    const password_hash = await bcrypt.hash(password, 10);
+
+    await pool.query(
+      `INSERT INTO users (username, password_hash, role_id, shift_start, shift_end, gender_id)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [username, password_hash, Number(role_id), shift_start, shift_end, Number(gender_id)]
     );
 
-    const user = rows[0];
-    if (!user) return res.status(401).json({ message: "Invalid username/password" });
-
-    const ok = await bcrypt.compare(String(password), user.password_hash || "");
-    if (!ok) return res.status(401).json({ message: "Invalid username/password" });
-
-    const token = jwt.sign(
-      { user_id: user.user_id, username: user.username, role_id: user.role_id ?? null },
-      SECRET,
-      { expiresIn: "7d" }
-    );
-
-    res.json({
-      token,
-      user: {
-        user_id: user.user_id,
-        username: user.username,
-        role_id: user.role_id ?? null,
-      },
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Login failed" });
+    res.status(201).json({ ok: true, message: "User created" });
+  } catch (e) {
+    console.error(e);
+    // FK errors will show here if ids are wrong
+    res.status(500).json({ message: "Signup failed", error: e.code });
   }
 });
 

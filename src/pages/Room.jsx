@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-
-const API_BASE = "http://localhost:3000/api";
+import { apiFetch } from "../lib/api"; // adjust path if needed
 
 export default function Room() {
   const [rooms, setRooms] = useState([]);
@@ -13,8 +12,8 @@ export default function Room() {
   async function loadAll() {
     try {
       const [roomsRes, lookupsRes] = await Promise.all([
-        fetch(`${API_BASE}/rooms`),
-        fetch(`${API_BASE}/rooms/lookups`),
+              apiFetch("/rooms"),
+              apiFetch("/rooms/lookups"),
       ]);
 
       const roomsJson = await roomsRes.json();
@@ -63,7 +62,7 @@ export default function Room() {
     const status_id = window.prompt(`Enter status_id:\n${statusLabel}`);
     if (!status_id) return;
 
-    const res = await fetch(`${API_BASE}/rooms`, {
+    const res = await apiFetch("/rooms", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -107,7 +106,7 @@ export default function Room() {
     );
     if (!status_id) return;
 
-    const res = await fetch(`${API_BASE}/rooms/${r.room_id}`, {
+    const res = await apiFetch(`/rooms/${r.room_id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -131,7 +130,7 @@ export default function Room() {
     const ok = window.confirm(`Delete room ${r.room_number}?`);
     if (!ok) return;
 
-    const res = await fetch(`${API_BASE}/rooms/${r.room_id}`, { method: "DELETE" });
+    const res = await apiFetch(`/rooms/${r.room_id}`, { method: "DELETE" });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));

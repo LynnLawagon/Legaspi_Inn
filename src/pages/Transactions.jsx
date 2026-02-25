@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import SalesModal from "../components/SalesModal";
 import ReceiptModal from "../components/ReceiptModal";
-
-const API_BASE = "http://localhost:3000/api";
+import { apiFetch } from "../lib/api";
 
 /** expects ISO string or mysql datetime; returns { date:"YYYY/MM/DD", time:"HH:mm:ss" } */
 function splitToDisplayParts(dt) {
@@ -90,8 +89,8 @@ export default function Transactions() {
     async function loadAll() {
     try {
       const [tRes, lRes] = await Promise.all([
-        fetch(`${API_BASE}/transactions`),
-        fetch(`${API_BASE}/transactions/lookups`),
+        apiFetch("/transactions"),
+        apiFetch("/transactions/lookups"),
       ]);
 
       if (!tRes.ok) {
@@ -187,13 +186,11 @@ export default function Transactions() {
       date_created: toMysqlDatetimeFromInput(txForm.date_created),
     };
 
-    const url = editTarget
-      ? `${API_BASE}/transactions/${editTarget.trans_id}`
-      : `${API_BASE}/transactions`;
+    const path = editTarget
+    ? `/transactions/${editTarget.trans_id}`
+    : `/transactions`;
 
-    const method = editTarget ? "PUT" : "POST";
-
-    const res = await fetch(url, {
+    const res = await apiFetch(path, {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -213,8 +210,8 @@ export default function Transactions() {
     const ok = window.confirm(`Delete transaction #${t.trans_id}?`);
     if (!ok) return;
 
-    const res = await fetch(`${API_BASE}/transactions/${t.trans_id}`, {
-      method: "DELETE",
+    const res = await apiFetch(`/transactions/${t.trans_id}`, {
+    method: "DELETE",
     });
 
     if (!res.ok) {

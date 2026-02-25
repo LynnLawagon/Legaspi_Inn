@@ -1,84 +1,114 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import "../styles/auth.css";
-import { getSession, loginUser } from "../utils/auth";
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+
+const API_BASE = "/api";
 
 export default function Login() {
   const nav = useNavigate();
-  const [userId, setUserId] = useState("");
-  const [password, setPassword] = useState("");
-  const [msg, setMsg] = useState({ text: "", ok: false });
 
-  useEffect(() => {
-    // if already logged in, go dashboard
-    const session = getSession();
-    if (session) nav("/", { replace: true }); // dashboard route
-  }, [nav]);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [submitting, setSubmitting] = useState(false);
+  const [errMsg, setErrMsg] = useState("");
 
   async function onSubmit(e) {
-  e.preventDefault();
-  const res = await loginUser({ userId, password });
+    e.preventDefault();
+    setErrMsg("");
 
-  if (!res.ok) {
-    setMsg({ text: res.message, ok: false });
-    return;
-  }
+    if (!username.trim() || !password) {
+      setErrMsg("Username and password are required.");
+      return;
+    }
 
-  setMsg({ text: "Login successful! Redirecting...", ok: true });
-  setTimeout(() => nav("/", { replace: true }), 250);
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: username.trim(),
+          password,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setErrMsg(data?.message || `Login failed (${res.status})`);
+        return;
+      }
+
+      // Expected backend response:
+      // { ok:true, token:"...", user:{ user_id, username, role_id, gender_id, shift_start, shift_end } }
+      if (data?.token) {
+        localStorage.setItem("token", data.token);
+      }
+      if (data?.user) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+      }
+
+      nav("/dashboard", { replace: true });
+    } catch (e) {
+      setErrMsg("Failed to fetch (backend down / proxy/CORS / wrong URL).");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
-    <div className="auth-page">
-      <div className="auth-shell">
-        <div className="brand">
-          <img src="/assets/images/legaspi-inn-beige.png" alt="Legaspi Inn Logo" />
+    <div style={{ maxWidth: 420, margin: "40px auto", padding: 16 }}>
+      <h2 style={{ marginBottom: 10 }}>Login</h2>
+
+      {errMsg && (
+        <div style={{ background: "#ffecec", border: "1px solid #ffb4b4", padding: 10, borderRadius: 10, marginBottom: 12 }}>
+          {errMsg}
         </div>
+      )}
 
-        <div className="panel">
-          <div className="tabs">
-            <Link className="tab active" to="/login">Login</Link>
-            <Link className="tab" to="/signup">Sign up</Link>
-          </div>
+      <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <label>
+          Username
+          <input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Enter username"
+            autoComplete="username"
+            style={{ width: "100%", height: 40, padding: "0 10px", borderRadius: 10, border: "1px solid #ddd" }}
+          />
+        </label>
 
-          <form className="form" onSubmit={onSubmit}>
-            <div className="login-stack">
-              <div className="field">
-                <label className="label" htmlFor="login_userId">User ID</label>
-                <input
-                  id="login_userId"
-                  className="input"
-                  value={userId}
-                  onChange={(e) => setUserId(e.target.value)}
-                  required
-                />
-              </div>
+        <label>
+          Password
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Enter password"
+            autoComplete="current-password"
+            style={{ width: "100%", height: 40, padding: "0 10px", borderRadius: 10, border: "1px solid #ddd" }}
+          />
+        </label>
 
-              <div className="field">
-                <label className="label" htmlFor="login_password">Password</label>
-                <input
-                  id="login_password"
-                  type="password"
-                  className="input"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
+        <button
+          type="submit"
+          disabled={submitting}
+          style={{
+            height: 42,
+            borderRadius: 10,
+            border: 0,
+            cursor: "pointer",
+            fontWeight: 700,
+            opacity: submitting ? 0.7 : 1,
+          }}
+        >
+          {submitting ? "Logging in..." : "Login"}
+        </button>
 
-              <a className="forgot" href="#" onClick={(e) => e.preventDefault()}>
-                Forgot Password?
-              </a>
-
-              <div className="btn-row">
-                <button className="btn" type="submit">Log in</button>
-              </div>
-
-              <div className={`msg ${msg.ok ? "ok" : ""}`}>{msg.text}</div>
-            </div>
-          </form>
-        </div>
-      </div>
+        <p style={{ textAlign: "center", marginTop: 6 }}>
+          No account? <Link to="/signup">Sign up</Link>
+        </p>
+      </form>
     </div>
   );
 }

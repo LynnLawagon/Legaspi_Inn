@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-
-const API_BASE = "http://localhost:3000/api";
+import { apiFetch } from "../lib/api";
 
 export default function Inventory() {
   const [items, setItems] = useState([]);
@@ -26,10 +25,10 @@ export default function Inventory() {
   async function loadAll() {
     setLoading(true);
     try {
-      const [itemsRes, lookupsRes] = await Promise.all([
-        fetch(`${API_BASE}/inventory`),
-        fetch(`${API_BASE}/inventory/lookups`),
-      ]);
+        const [itemsRes, lookupsRes] = await Promise.all([
+          apiFetch("/inventory"),
+          apiFetch("/inventory/lookups"),
+        ]);
 
       if (!itemsRes.ok) throw new Error("Failed to load inventory list");
       if (!lookupsRes.ok) throw new Error("Failed to load inventory lookups");
@@ -121,7 +120,7 @@ export default function Inventory() {
     );
     if (!inv_type_id) return;
 
-    const res = await fetch(`${API_BASE}/inventory`, {
+    const res = await apiFetch("/inventory", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -172,7 +171,7 @@ export default function Inventory() {
     );
     if (!inv_type_id) return;
 
-    const res = await fetch(`${API_BASE}/inventory/${it.inv_id}`, {
+    const res = await apiFetch(`/inventory/${it.inv_id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -195,7 +194,7 @@ export default function Inventory() {
   async function deleteItem(it) {
     if (!window.confirm(`Delete "${it.item_name}"?`)) return;
 
-    const res = await fetch(`${API_BASE}/inventory/${it.inv_id}`, { method: "DELETE" });
+    const res = await apiFetch(`/inventory/${it.inv_id}`, { method: "DELETE" });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
