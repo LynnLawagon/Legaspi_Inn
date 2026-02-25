@@ -1,24 +1,25 @@
-// routes/auth.js
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const pool = require("../db");
 
 const router = express.Router();
+const SECRET = process.env.JWT_SECRET || "dev_secret";
 
 // SIGNUP
 router.post("/signup", async (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ message: "username and password are required" });
+  if (!username || !password)
+    return res.status(400).json({ message: "username and password are required" });
 
   try {
+    const user = String(username).trim();
     const hash = await bcrypt.hash(String(password), 10);
 
-    // ✅ users.password_hash exists
     const [r] = await pool.query(
       `INSERT INTO users (username, password_hash)
        VALUES (?, ?)`,
-      [String(username).trim(), hash]
+      [user, hash]
     );
 
     res.status(201).json({ user_id: r.insertId });
@@ -34,7 +35,8 @@ router.post("/signup", async (req, res) => {
 // LOGIN
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ message: "Missing credentials" });
+  if (!username || !password)
+    return res.status(400).json({ message: "Missing credentials" });
 
   try {
     const [rows] = await pool.query(
@@ -53,7 +55,7 @@ router.post("/login", async (req, res) => {
 
     const token = jwt.sign(
       { user_id: user.user_id, username: user.username, role_id: user.role_id ?? null },
-      process.env.JWT_SECRET,
+      SECRET,
       { expiresIn: "7d" }
     );
 
@@ -62,8 +64,8 @@ router.post("/login", async (req, res) => {
       user: {
         user_id: user.user_id,
         username: user.username,
-        role_id: user.role_id ?? null
-      }
+        role_id: user.role_id ?? null,
+      },
     });
   } catch (err) {
     console.error(err);

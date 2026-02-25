@@ -15,17 +15,17 @@ export default function Login() {
     if (session) nav("/", { replace: true }); // dashboard route
   }, [nav]);
 
-  function onSubmit(e) {
-    e.preventDefault();
-    const res = loginUser({ userId, password });
+  async function onSubmit(e) {
+  e.preventDefault();
+  const res = await loginUser({ userId, password });
 
-    if (!res.ok) {
-      setMsg({ text: res.message, ok: false });
-      return;
-    }
+  if (!res.ok) {
+    setMsg({ text: res.message, ok: false });
+    return;
+  }
 
-    setMsg({ text: "Login successful! Redirecting...", ok: true });
-    setTimeout(() => nav("/", { replace: true }), 250);
+  setMsg({ text: "Login successful! Redirecting...", ok: true });
+  setTimeout(() => nav("/", { replace: true }), 250);
   }
 
   return (

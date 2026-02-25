@@ -23,27 +23,22 @@ export default function Signup() {
     setForm((p) => ({ ...p, [k]: v }));
   }
 
-  function onSubmit(e) {
-    e.preventDefault();
+  async function onSubmit(e) {
+  e.preventDefault();
 
-    const res = signupUser({
-      userId: form.userId,
-      password: form.password,
-      confirm: form.confirm,
-      firstName: form.firstName,
-      middleName: form.middleName,
-      lastName: form.lastName,
-      birthdate: form.birthdate,
-      phone: form.phone,
-    });
+  const res = await signupUser({
+    userId: form.userId,
+    password: form.password,
+    confirm: form.confirm,
+  });
 
-    if (!res.ok) {
-      setMsg({ text: res.message, ok: false });
-      return;
-    }
+  if (!res.ok) {
+    setMsg({ text: res.message, ok: false });
+    return;
+  }
 
-    setMsg({ text: "Account created! Redirecting...", ok: true });
-    setTimeout(() => nav("/", { replace: true }), 250); // dashboard
+  setMsg({ text: "Account created! Redirecting...", ok: true });
+  setTimeout(() => nav("/", { replace: true }), 250);
   }
 
   return (

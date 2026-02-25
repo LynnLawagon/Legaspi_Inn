@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Chart from "chart.js/auto";
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = "http://localhost:3000/api";
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);

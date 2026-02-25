@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import SalesModal from "../components/SalesModal";
 import ReceiptModal from "../components/ReceiptModal";
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = "http://localhost:3000/api";
 
 /** expects ISO string or mysql datetime; returns { date:"YYYY/MM/DD", time:"HH:mm:ss" } */
 function splitToDisplayParts(dt) {
