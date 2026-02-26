@@ -1,45 +1,36 @@
 import { useEffect, useMemo, useState } from "react";
 import "./SalesModal.css";
+import { apiFetch } from "../lib/api";
 
-const API_BASE = "http://localhost:5000/api";
-
-/**
- * RECOMMENDED items shape from backend:
- * items = [{ inv_id, item_name, unit_cost }]
- *
- * But will also accept:
- * items = [{ name, cost }]
- */
 export default function SalesModal({
   open,
   onClose,
   transId = "",
   guestName = "",
-  userId = null, // ✅ pass logged-in user_id here (required for purchased.user_id)
+  userId = null,
   items = [],
-  onSave, // optional callback (kept)
+  onSaved,
 }) {
   const normalizedItems = useMemo(() => {
     return (Array.isArray(items) ? items : []).map((x) => ({
-      inv_id: x.inv_id ?? x.id ?? null,
-      name: x.item_name ?? x.name ?? "",
-      cost: x.unit_cost ?? x.cost ?? "",
+      inv_id: x.inv_id,
+      name: x.item_name,
+      qtyAvailable: Number(x.quantity || 0),
     }));
   }, [items]);
 
-  const firstItemName = normalizedItems[0]?.name || "";
-
-  const [itemName, setItemName] = useState(firstItemName);
-  const [cost, setCost] = useState(normalizedItems[0]?.cost ?? "");
+  const first = normalizedItems[0]?.inv_id ?? "";
+  const [invId, setInvId] = useState(String(first));
   const [qty, setQty] = useState(1);
+  const [unitCost, setUnitCost] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setItemName(firstItemName);
-    setCost(normalizedItems.find((x) => x.name === firstItemName)?.cost ?? "");
+    setInvId(String(first || ""));
     setQty(1);
-  }, [open, firstItemName, normalizedItems]);
+    setUnitCost("");
+  }, [open, first]);
 
   useEffect(() => {
     if (!open) return;
@@ -48,85 +39,46 @@ export default function SalesModal({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  const selected = normalizedItems.find((x) => String(x.inv_id) === String(invId));
+
   const subtotal = useMemo(() => {
-    const c = Number(cost || 0);
+    const c = Number(unitCost || 0);
     const q = Number(qty || 0);
     return (c * q).toFixed(2);
-  }, [cost, qty]);
+  }, [unitCost, qty]);
 
   if (!open) return null;
-
-  const onItemChange = (e) => {
-    const v = e.target.value;
-    setItemName(v);
-    const found = normalizedItems.find((x) => x.name === v);
-    if (found) setCost(found.cost);
-  };
 
   async function submit(e) {
     e.preventDefault();
 
-    const c = Number(cost || 0);
     const q = Number(qty || 0);
+    const c = Number(unitCost || 0);
 
-    if (!transId || !guestName || !itemName || q <= 0 || c < 0) {
-      alert("Please complete the fields.");
-      return;
-    }
-
-    if (!userId) {
-      alert("Missing userId. Pass userId prop to SalesModal (logged-in user_id).");
-      return;
-    }
-
-    const selected = normalizedItems.find((x) => x.name === itemName);
-    const inv_id = selected?.inv_id;
-
-    if (!inv_id) {
-      alert(
-        "Missing inv_id for this item. Please load items from DB with inv_id (recommended)."
-      );
-      return;
-    }
+    if (!transId) return alert("Missing transaction.");
+    if (!userId) return alert("Missing userId (staff).");
+    if (!invId) return alert("Please choose an item.");
+    if (q <= 0) return alert("Quantity must be at least 1.");
+    if (Number.isNaN(c) || c < 0) return alert("Unit cost must be 0 or higher.");
+    if (selected && q > selected.qtyAvailable) return alert("Not enough stock.");
 
     setSaving(true);
     try {
-      // ✅ SAVE TO DB: purchased + purchased_details
-      const res = await fetch(`${API_BASE}/purchased`, {
+      await apiFetch("/purchased", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           trans_id: Number(transId),
           user_id: Number(userId),
-          inv_id: Number(inv_id),
+          inv_id: Number(invId),
           quantity: Number(q),
           unit_cost: Number(c),
         }),
       });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        alert(err.message || "Failed to save purchased item");
-        setSaving(false);
-        return;
-      }
-
-      // ✅ optional: let parent update UI state
-      onSave?.({
-        trans_id: transId,
-        guest: guestName,
-        inv_id,
-        item: itemName,
-        qty: q,
-        cost: Number(c.toFixed(2)),
-        subtotal: Number((c * q).toFixed(2)),
-        date: new Date().toISOString(),
-      });
-
+      onSaved?.();
       onClose?.();
     } catch (err) {
-      console.error(err);
-      alert("Network error saving purchased item");
+      alert(err?.message || "Failed to save purchased item");
     } finally {
       setSaving(false);
     }
@@ -140,7 +92,7 @@ export default function SalesModal({
         if (e.target === e.currentTarget) onClose?.();
       }}
     >
-      <div className="sales-card" role="dialog" aria-modal="true" aria-label="Sales modal">
+      <div className="sales-card" role="dialog" aria-modal="true" aria-label="Purchased Items">
         <button className="sales-close" type="button" onClick={onClose} aria-label="Close">
           ✕
         </button>
@@ -160,12 +112,16 @@ export default function SalesModal({
 
           <label className="sfield">
             <span>Item</span>
-            <select value={itemName} onChange={onItemChange} required>
-              {normalizedItems.map((x) => (
-                <option key={`${x.inv_id ?? "x"}-${x.name}`} value={x.name}>
-                  {x.name}
-                </option>
-              ))}
+            <select value={invId} onChange={(e) => setInvId(e.target.value)} required>
+              {normalizedItems.length === 0 ? (
+                <option value="">No inventory available</option>
+              ) : (
+                normalizedItems.map((x) => (
+                  <option key={x.inv_id} value={x.inv_id}>
+                    {x.name} (stock: {x.qtyAvailable})
+                  </option>
+                ))
+              )}
             </select>
           </label>
 
@@ -181,13 +137,15 @@ export default function SalesModal({
           </label>
 
           <label className="sfield">
-            <span>Cost</span>
+            <span>Unit Cost</span>
             <input
               type="number"
               min="0"
               step="0.01"
-              value={cost}
-              onChange={(e) => setCost(e.target.value)}
+              value={unitCost}
+              onChange={(e) => setUnitCost(e.target.value)}
+              placeholder="0.00"
+              required
             />
           </label>
 

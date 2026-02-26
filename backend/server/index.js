@@ -15,6 +15,7 @@ const guestRoutes = require("./routes/guests");
 const inventoryRoutes = require("./routes/inventory");
 const transactionRoutes = require("./routes/transactions");
 const damageRoutes = require("./routes/damages");
+const purchasedRoutes = require("./routes/purchased");
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use("/api/guests", authRequired, guestRoutes);
 app.use("/api/inventory", authRequired, inventoryRoutes);
 app.use("/api/transactions", authRequired, transactionRoutes);
 app.use("/api/damages", authRequired, damageRoutes);
+app.use("/api/purchased", authRequired, purchasedRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`API running on http://localhost:${PORT}`));
