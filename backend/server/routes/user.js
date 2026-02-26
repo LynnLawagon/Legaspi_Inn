@@ -1,14 +1,18 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const pool = require("../db");
+const { authRequired } = require("../middleware/auth"); // ✅ adjust path if needed
 
 const router = express.Router();
 
-router.get("/:id", async (req, res) => {
+// ✅ GET /api/users/:id (protected)
+router.get("/:id", authRequired, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT user_id, username, role_id, shift_start, shift_end
-       FROM users WHERE user_id=? LIMIT 1`,
+      `SELECT u.user_id, u.username, u.role_id, u.shift_start, u.shift_end, r.role_name
+       FROM users u
+       JOIN roles r ON r.role_id = u.role_id
+       WHERE u.user_id=? LIMIT 1`,
       [Number(req.params.id)]
     );
     if (!rows[0]) return res.status(404).json({ message: "User not found" });
@@ -19,11 +23,21 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-router.put("/:id", async (req, res) => {
+// ✅ PUT /api/users/:id (protected)
+router.put("/:id", authRequired, async (req, res) => {
   const { username, password, role_id, shift_start, shift_end } = req.body;
 
   try {
     const id = Number(req.params.id);
+
+    // optional: prevent duplicate usernames
+    if (username !== undefined) {
+      const [dup] = await pool.query(
+        "SELECT user_id FROM users WHERE username=? AND user_id <> ? LIMIT 1",
+        [String(username).trim(), id]
+      );
+      if (dup.length) return res.status(409).json({ message: "Username already exists" });
+    }
 
     const fields = [];
     const params = [];
@@ -34,15 +48,15 @@ router.put("/:id", async (req, res) => {
     }
     if (role_id !== undefined) {
       fields.push("role_id=?");
-      params.push(role_id ?? null);
+      params.push(Number(role_id));
     }
     if (shift_start !== undefined) {
       fields.push("shift_start=?");
-      params.push(shift_start ?? null);
+      params.push(shift_start);
     }
     if (shift_end !== undefined) {
       fields.push("shift_end=?");
-      params.push(shift_end ?? null);
+      params.push(shift_end);
     }
 
     if (password && String(password).trim()) {
@@ -63,7 +77,17 @@ router.put("/:id", async (req, res) => {
     );
 
     if (r.affectedRows === 0) return res.status(404).json({ message: "User not found" });
-    res.json({ updated: r.affectedRows });
+
+    // return updated user (handy for frontend)
+    const [rows] = await pool.query(
+      `SELECT u.user_id, u.username, u.role_id, u.shift_start, u.shift_end, r.role_name
+       FROM users u
+       JOIN roles r ON r.role_id = u.role_id
+       WHERE u.user_id=? LIMIT 1`,
+      [id]
+    );
+
+    res.json({ ok: true, user: rows[0] });
   } catch (e) {
     console.error(e);
     res.status(500).json({ message: "Failed to update user" });

@@ -85,11 +85,7 @@ export default function Layout() {
           }}
         >
           <img src="/assets/images/user.png" alt="employee" />
-          {user
-            ? `${user.first_name ?? user.firstName ?? ""} ${
-                user.last_name ?? user.lastName ?? ""
-              }`.trim() || "Employee"
-            : "Employee"}
+          {user?.username || "Employee"}
         </div>
       </aside>
 

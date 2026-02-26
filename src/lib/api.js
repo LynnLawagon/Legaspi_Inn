@@ -1,7 +1,11 @@
+// src/lib/api.js
+import { getToken as getSessionToken } from "../utils/auth"; // ✅ imports first
+
 export const API_BASE = "/api";
 
 export function getToken() {
-  return localStorage.getItem("token") || "";
+  // read from legaspi_session
+  return getSessionToken() || "";
 }
 
 export async function apiFetch(path, options = {}) {
@@ -18,7 +22,6 @@ export async function apiFetch(path, options = {}) {
     headers["Content-Type"] = "application/json";
   }
 
-  // attach token when available
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const res = await fetch(`${API_BASE}${path}`, {
