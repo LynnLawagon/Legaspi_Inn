@@ -2,7 +2,6 @@
 const KEY = "legaspi_session";
 
 export function setSession(data) {
-  // expected shape: { token, user }
   localStorage.setItem(KEY, JSON.stringify(data));
 }
 

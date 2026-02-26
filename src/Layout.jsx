@@ -1,17 +1,18 @@
-// Layout.jsx
+// src/Layout.jsx
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import "./App.css";
 import UserModal from "./components/UserModal";
 import CalculatorModal from "./components/CalculatorModal";
-import { clearSession, getUser } from "./utils/auth";
+import { clearSession, getSession } from "./utils/auth";
 
 export default function Layout() {
   const [userOpen, setUserOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
   const navigate = useNavigate();
 
-  const user = getUser(); // ✅ current logged in user
+  const session = getSession();
+  const user = session?.user || null;
 
   function handleLogout() {
     clearSession();
@@ -37,20 +38,23 @@ export default function Layout() {
 
             <li>
               <NavLink to="/transactions">
-                <img src="/assets/images/sidebar/transaction.png" alt="transaction" />
+                <img
+                  src="/assets/images/sidebar/transaction.png"
+                  alt="transaction"
+                />
                 Transactions
               </NavLink>
             </li>
 
             <li>
-              <NavLink to="/room">
+              <NavLink to="/rooms">
                 <img src="/assets/images/sidebar/room.png" alt="room" />
                 Room
               </NavLink>
             </li>
 
             <li>
-              <NavLink to="/guest">
+              <NavLink to="/guests">
                 <img src="/assets/images/sidebar/guest.png" alt="guest" />
                 Guest
               </NavLink>
@@ -58,7 +62,10 @@ export default function Layout() {
 
             <li>
               <NavLink to="/inventory">
-                <img src="/assets/images/sidebar/inventory.png" alt="inventory" />
+                <img
+                  src="/assets/images/sidebar/inventory.png"
+                  alt="inventory"
+                />
                 Inventory
               </NavLink>
             </li>
@@ -79,7 +86,9 @@ export default function Layout() {
         >
           <img src="/assets/images/user.png" alt="employee" />
           {user
-            ? `${user.first_name ?? user.firstName ?? ""} ${user.last_name ?? user.lastName ?? ""}`.trim() || "Employee"
+            ? `${user.first_name ?? user.firstName ?? ""} ${
+                user.last_name ?? user.lastName ?? ""
+              }`.trim() || "Employee"
             : "Employee"}
         </div>
       </aside>
@@ -104,14 +113,12 @@ export default function Layout() {
         <Outlet />
       </main>
 
-      {/* ✅ MODALS OUTSIDE */}
       <UserModal
         open={userOpen}
         onClose={() => setUserOpen(false)}
         onLogout={handleLogout}
-        user={user}   // ✅ PASS THE REAL USER
+        user={user}
       />
-
       <CalculatorModal open={calcOpen} onClose={() => setCalcOpen(false)} />
     </div>
   );
