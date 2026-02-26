@@ -1,6 +1,8 @@
+// src/pages/Signup.jsx
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { apiFetch } from "../lib/api";
+import "./Auth.css";
 
 export default function Signup() {
   const nav = useNavigate();
@@ -39,7 +41,6 @@ export default function Signup() {
         setGenders(Array.isArray(gData) ? gData : []);
         setRoles(Array.isArray(rData) ? rData : []);
 
-        // defaults
         if (Array.isArray(gData) && gData[0]) setGenderId(String(gData[0].gender_id));
         if (Array.isArray(rData) && rData[0]) setRoleId(String(rData[0].role_id));
       } catch (e) {
@@ -52,7 +53,9 @@ export default function Signup() {
     }
 
     loadMeta();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, []);
 
   function validate() {
@@ -98,111 +101,119 @@ export default function Signup() {
   }
 
   return (
-    <div style={{ maxWidth: 420, margin: "40px auto", padding: 16 }}>
-      <h2 style={{ marginBottom: 10 }}>Create account</h2>
-
-      {errMsg && (
-        <div style={{ background: "#ffecec", border: "1px solid #ffb4b4", padding: 10, borderRadius: 10, marginBottom: 12 }}>
-          {errMsg}
+    <div className="auth-page">
+      <div className="auth-card">
+        <div className="auth-header">
+          <img className="auth-logo" src="/assets/images/logo.png" alt="Logo" />
+          <h1 className="auth-title">Create account</h1>
+          <p className="auth-subtitle">Register to access Legaspi Inn system</p>
         </div>
-      )}
 
-      {loadingMeta ? (
-        <p>Loading gender/roles…</p>
-      ) : (
-        <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <label>
-            Username
-            <input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              style={{ width: "100%", height: 40, padding: "0 10px", borderRadius: 10, border: "1px solid #ddd" }}
-            />
-          </label>
+        {errMsg && <div className="auth-alert">{errMsg}</div>}
 
-          <label>
-            Password
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={{ width: "100%", height: 40, padding: "0 10px", borderRadius: 10, border: "1px solid #ddd" }}
-            />
-          </label>
-
-          <label>
-            Confirm Password
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              style={{ width: "100%", height: 40, padding: "0 10px", borderRadius: 10, border: "1px solid #ddd" }}
-            />
-          </label>
-
-          <label>
-            Gender
-            <select
-              value={genderId}
-              onChange={(e) => setGenderId(e.target.value)}
-              style={{ width: "100%", height: 40, padding: "0 10px", borderRadius: 10, border: "1px solid #ddd" }}
-            >
-              <option value="">Select gender</option>
-              {genders.map((g) => (
-                <option key={g.gender_id} value={g.gender_id}>
-                  {g.gender_name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Role
-            <select
-              value={roleId}
-              onChange={(e) => setRoleId(e.target.value)}
-              style={{ width: "100%", height: 40, padding: "0 10px", borderRadius: 10, border: "1px solid #ddd" }}
-            >
-              <option value="">Select role</option>
-              {roles.map((r) => (
-                <option key={r.role_id} value={r.role_id}>
-                  {r.role_name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <label>
-              Time In
+        {loadingMeta ? (
+          <p className="auth-subtitle">Loading gender/roles…</p>
+        ) : (
+          <form className="auth-form" onSubmit={onSubmit}>
+            <label className="auth-label">
+              Username
               <input
-                type="time"
-                value={shiftStart}
-                onChange={(e) => setShiftStart(e.target.value)}
-                style={{ width: "100%", height: 40, padding: "0 10px", borderRadius: 10, border: "1px solid #ddd" }}
+                className="auth-input"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Choose a username"
               />
             </label>
 
-            <label>
-              Time Out
+            <label className="auth-label">
+              Password
               <input
-                type="time"
-                value={shiftEnd}
-                onChange={(e) => setShiftEnd(e.target.value)}
-                style={{ width: "100%", height: 40, padding: "0 10px", borderRadius: 10, border: "1px solid #ddd" }}
+                className="auth-input"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Create a password"
               />
             </label>
-          </div>
 
-          <button type="submit" disabled={submitting} style={{ height: 42, borderRadius: 10, border: 0, cursor: "pointer", fontWeight: 700 }}>
-            {submitting ? "Creating..." : "Create account"}
-          </button>
+            <label className="auth-label">
+              Confirm Password
+              <input
+                className="auth-input"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Re-enter password"
+              />
+            </label>
 
-          <p style={{ textAlign: "center", marginTop: 6 }}>
-            Already have an account? <Link to="/login">Login</Link>
-          </p>
-        </form>
-      )}
+            <label className="auth-label">
+              Gender
+              <select
+                className="auth-select"
+                value={genderId}
+                onChange={(e) => setGenderId(e.target.value)}
+              >
+                <option value="">Select gender</option>
+                {genders.map((g) => (
+                  <option key={g.gender_id} value={g.gender_id}>
+                    {g.gender_name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="auth-label">
+              Role
+              <select
+                className="auth-select"
+                value={roleId}
+                onChange={(e) => setRoleId(e.target.value)}
+              >
+                <option value="">Select role</option>
+                {roles.map((r) => (
+                  <option key={r.role_id} value={r.role_id}>
+                    {r.role_name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="auth-row">
+              <label className="auth-label">
+                Time In
+                <input
+                  className="auth-input"
+                  type="time"
+                  value={shiftStart}
+                  onChange={(e) => setShiftStart(e.target.value)}
+                />
+              </label>
+
+              <label className="auth-label">
+                Time Out
+                <input
+                  className="auth-input"
+                  type="time"
+                  value={shiftEnd}
+                  onChange={(e) => setShiftEnd(e.target.value)}
+                />
+              </label>
+            </div>
+
+            <button className="auth-btn" type="submit" disabled={submitting}>
+              {submitting ? "Creating..." : "Create account"}
+            </button>
+
+            <p className="auth-foot">
+              Already have an account?{" "}
+              <Link className="auth-link" to="/login">
+                Login
+              </Link>
+            </p>
+          </form>
+        )}
+      </div>
     </div>
   );
 }

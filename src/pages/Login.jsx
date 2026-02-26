@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { apiFetch } from "../lib/api";
 import { setSession } from "../utils/auth";
+import "./Auth.css";
 
 export default function Login() {
   const nav = useNavigate();
@@ -38,78 +39,52 @@ export default function Login() {
   }
 
   return (
-    <div style={{ maxWidth: 420, margin: "40px auto", padding: 16 }}>
-      <h2 style={{ marginBottom: 10 }}>Login</h2>
-
-      {errMsg && (
-        <div
-          style={{
-            background: "#ffecec",
-            border: "1px solid #ffb4b4",
-            padding: 10,
-            borderRadius: 10,
-            marginBottom: 12,
-          }}
-        >
-          {errMsg}
+    <div className="auth-page">
+      <div className="auth-card">
+        <div className="auth-header">
+          <img className="auth-logo" src="/assets/images/logo.png" alt="Logo" />
+          <h1 className="auth-title">Welcome back</h1>
+          <p className="auth-subtitle">Log in to continue to Legaspi Inn</p>
         </div>
-      )}
 
-      <form
-        onSubmit={onSubmit}
-        style={{ display: "flex", flexDirection: "column", gap: 10 }}
-      >
-        <label>
-          Username
-          <input
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoComplete="username"
-            style={{
-              width: "100%",
-              height: 40,
-              padding: "0 10px",
-              borderRadius: 10,
-              border: "1px solid #ddd",
-            }}
-          />
-        </label>
+        {errMsg && <div className="auth-alert">{errMsg}</div>}
 
-        <label>
-          Password
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            style={{
-              width: "100%",
-              height: 40,
-              padding: "0 10px",
-              borderRadius: 10,
-              border: "1px solid #ddd",
-            }}
-          />
-        </label>
+        <form className="auth-form" onSubmit={onSubmit}>
+          <label className="auth-label">
+            Username
+            <input
+              className="auth-input"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="username"
+              placeholder="Enter your username"
+            />
+          </label>
 
-        <button
-          type="submit"
-          disabled={submitting}
-          style={{
-            height: 42,
-            borderRadius: 10,
-            border: 0,
-            cursor: "pointer",
-            fontWeight: 700,
-          }}
-        >
-          {submitting ? "Logging in..." : "Login"}
-        </button>
+          <label className="auth-label">
+            Password
+            <input
+              className="auth-input"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              placeholder="Enter your password"
+            />
+          </label>
 
-        <p style={{ textAlign: "center", marginTop: 6 }}>
-          No account? <Link to="/signup">Sign up</Link>
-        </p>
-      </form>
+          <button className="auth-btn" type="submit" disabled={submitting}>
+            {submitting ? "Logging in..." : "Login"}
+          </button>
+
+          <p className="auth-foot">
+            No account?{" "}
+            <Link className="auth-link" to="/signup">
+              Sign up
+            </Link>
+          </p>
+        </form>
+      </div>
     </div>
   );
 }
