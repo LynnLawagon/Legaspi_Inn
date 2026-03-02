@@ -1,19 +1,16 @@
 // src/lib/api.js
-import { getToken as getSessionToken } from "../utils/auth"; // ✅ imports first
+import { getToken as getSessionToken } from "../utils/auth";
 
 export const API_BASE = "/api";
 
 export function getToken() {
-  // read from legaspi_session
-  return getSessionToken() || "";
+  return getSessionToken() || null;
 }
 
 export async function apiFetch(path, options = {}) {
   const token = getToken();
 
-  const headers = {
-    ...(options.headers || {}),
-  };
+  const headers = { ...(options.headers || {}) };
 
   const isFormData =
     typeof FormData !== "undefined" && options.body instanceof FormData;
