@@ -1,10 +1,9 @@
 const express = require("express");
 const pool = require("../db");
-// const { authRequired } = require("../middleware/auth"); // remove
 
 const router = express.Router();
 
-// GET /api/meta/genders  (PUBLIC)
+// GET /api/meta/genders (PUBLIC)
 router.get("/genders", async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -13,13 +12,14 @@ router.get("/genders", async (req, res) => {
     res.json(Array.isArray(rows) ? rows : []);
   } catch (e) {
     console.error("meta/genders error:", e);
-    res
-      .status(500)
-      .json({ message: "Failed to load genders", error: e.code || e.message });
+    res.status(500).json({
+      message: "Failed to load genders",
+      error: e.code || e.message,
+    });
   }
 });
 
-// GET /api/meta/roles  (PUBLIC)
+// GET /api/meta/roles (PUBLIC)
 router.get("/roles", async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -28,9 +28,10 @@ router.get("/roles", async (req, res) => {
     res.json(Array.isArray(rows) ? rows : []);
   } catch (e) {
     console.error("meta/roles error:", e);
-    res
-      .status(500)
-      .json({ message: "Failed to load roles", error: e.code || e.message });
+    res.status(500).json({
+      message: "Failed to load roles",
+      error: e.code || e.message,
+    });
   }
 });
 

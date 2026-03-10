@@ -7,9 +7,7 @@ export async function apiFetch(path, options = {}) {
   const session = getSession();
   const token = session?.token;
 
-  const headers = {
-    ...(options.headers || {}),
-  };
+  const headers = { ...(options.headers || {}) };
 
   const isFormData =
     typeof FormData !== "undefined" && options.body instanceof FormData;
@@ -25,9 +23,9 @@ export async function apiFetch(path, options = {}) {
     headers,
   });
 
-  // parse json if possible
   let data = null;
   const ct = res.headers.get("content-type") || "";
+
   if (ct.includes("application/json")) {
     data = await res.json().catch(() => null);
   } else {
@@ -39,6 +37,7 @@ export async function apiFetch(path, options = {}) {
       (data && data.message) ||
       (data && data.error) ||
       (typeof data === "string" ? data : `Request failed (${res.status})`);
+
     const err = new Error(msg);
     err.status = res.status;
     err.data = data;
