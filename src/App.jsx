@@ -11,6 +11,8 @@ import Inventory from "./pages/Inventory";
 import Transactions from "./pages/Transactions";
 import Guest from "./pages/Guest";
 
+import Sales from "./pages/Sales";
+
 import { getToken } from "./utils/auth";
 
 function RequireAuth({ children }) {
@@ -26,14 +28,11 @@ function HomeRedirect() {
 export default function App() {
   return (
     <Routes>
-      {/* default */}
       <Route path="/" element={<HomeRedirect />} />
 
-      {/* public */}
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
 
-      {/* protected */}
       <Route
         element={
           <RequireAuth>
@@ -46,9 +45,11 @@ export default function App() {
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/transactions" element={<Transactions />} />
         <Route path="/guests" element={<Guest />} />
+
+        {/* ✅ NOW WORKS */}
+        <Route path="/sales" element={<Sales />} />
       </Route>
 
-      {/* fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

@@ -1,0 +1,355 @@
+/* =========================================================
+   SALES PAGE
+   ========================================================= */
+
+.sales-page{
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sales-header{
+  flex: 0 0 auto;
+}
+
+.sales-card{
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 18px;
+  width: 100%;
+  background: rgba(217,217,217,0.40);
+  border-radius: 22px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sales-table-wrap{
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  border-radius: 18px;
+}
+
+.sales-kpis{
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.sales-chip{
+  font-size: 12px;
+  font-weight: 900;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 2px solid #2C0735;
+  background: rgba(244,228,209,0.85);
+  color: #2C0735;
+}
+
+.sales-chip.ghost{
+  background: transparent;
+}
+
+.sales-note{
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(44,7,53,0.75);
+}
+
+.sales-table{
+  width: 100%;
+  min-width: 1120px;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.sales-table thead th{
+  padding: 18px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #2C0735;
+  background: rgba(226,226,226,0.45);
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.sales-table thead th:first-child{
+  border-top-left-radius: 18px;
+}
+
+.sales-table thead th:last-child{
+  border-top-right-radius: 18px;
+}
+
+.sales-table tbody td{
+  padding: 22px 18px;
+  font-size: 16px;
+  color: #2C0735;
+  background: rgba(217,217,217,0.20);
+  border-bottom: 2px solid #F4E4D1;
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sales-table tbody tr:last-child td{
+  border-bottom: none;
+}
+
+.th-left,
+.td-left{
+  text-align: left;
+}
+
+.th-right,
+.td-right{
+  text-align: right;
+}
+
+.td-center{
+  text-align: center;
+}
+
+.td-mono{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.sales-view{
+  height: 34px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(44,7,53,0.12);
+  color: #2C0735;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.sales-view:hover{
+  background: rgba(44,7,53,0.18);
+}
+
+.sales-empty{
+  text-align: center;
+  padding: 18px 12px;
+  font-weight: 800;
+  color: rgba(44,7,53,0.75);
+}
+
+/* align sales search with date inputs */
+.sales-page .page-search .search-wrap{
+  height: 40px;
+  padding: 0 16px;
+  width: min(560px, 55vw);
+  box-sizing: border-box;
+}
+
+.sales-page .page-search .search-wrap input{
+  height: 100%;
+}
+
+@media (max-width: 900px){
+  .sales-note{
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .sales-page .page-search{
+    width: 100%;
+  }
+
+  .sales-page .page-search .search-wrap{
+    width: 100%;
+  }
+}
+
+/* =========================================================
+   SALES DETAILS MODAL
+   ========================================================= */
+.sd-overlay{
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0,0,0,0.35);
+  z-index: 999999;
+}
+
+.sd-overlay.show{
+  display: flex;
+}
+
+.sd-card{
+  width: min(860px, 96vw);
+  max-height: 90vh;
+  overflow: hidden;
+  background: #F4E4D1;
+  border: 2px solid #2C0735;
+  border-radius: 22px;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.25);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+}
+
+.sd-close{
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border: 2px solid rgba(44,7,53,0.25);
+  background: rgba(244,228,209,0.9);
+  color: #2C0735;
+  font-weight: 900;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.sd-head{
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-right: 46px;
+}
+
+.sd-head h2{
+  margin: 0;
+  font-size: 22px;
+  font-weight: 900;
+  color: #2C0735;
+}
+
+.sd-sub{
+  margin: 6px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(44,7,53,0.75);
+}
+
+.sd-dot{
+  display: inline-block;
+  margin: 0 6px;
+  opacity: 0.7;
+}
+
+.sd-kpis{
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.sd-chip{
+  font-size: 12px;
+  font-weight: 900;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 2px solid #2C0735;
+  background: rgba(244,228,209,0.9);
+  color: #2C0735;
+}
+
+.sd-divider{
+  height: 2px;
+  background: rgba(44,7,53,0.18);
+  border-radius: 999px;
+  margin: 12px 0;
+}
+
+.sd-table-wrap{
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  border-radius: 16px;
+  border: 2px solid rgba(44,7,53,0.22);
+  background: rgba(244,228,209,0.55);
+}
+
+.sd-table{
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.sd-table thead th{
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 12px;
+  background: #F4E4D1;
+  color: #2C0735;
+  font-size: 12px;
+  font-weight: 900;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 2px solid rgba(44,7,53,0.22);
+}
+
+.sd-table tbody td{
+  padding: 12px;
+  background: rgba(244,228,209,0.25);
+  color: #2C0735;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid rgba(44,7,53,0.12);
+}
+
+.sd-table tbody tr:last-child td{
+  border-bottom: none;
+}
+
+.t-center{
+  text-align: center;
+}
+
+.t-right{
+  text-align: right;
+}
+
+.t-left{
+  text-align: left;
+}
+
+.sd-loading,
+.sd-empty{
+  text-align: center;
+  padding: 18px 12px;
+  font-weight: 800;
+  color: rgba(44,7,53,0.75);
+}
+
+.sd-actions{
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.sd-btn{
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 2px solid #2C0735;
+  background: #2C0735;
+  color: #F4E4D1;
+  font-weight: 900;
+  cursor: pointer;
+}

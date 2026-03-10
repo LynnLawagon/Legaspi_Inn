@@ -3,16 +3,20 @@ const express = require("express");
 const pool = require("../db");
 const router = express.Router();
 
-// Get purchased items by transaction (for receipt & UI)
+/**
+ * Get purchased items by transaction
+ * GET /api/purchased/by-transaction/:transId
+ */
 router.get("/by-transaction/:transId", async (req, res) => {
   try {
     const transId = Number(req.params.transId);
 
-    const [rows] = await pool.query(`
+    const [rows] = await pool.query(
+      `
       SELECT
         pd.pd_id,
         pd.inv_id,
-        i.item_name,
+        i.name AS item_name,
         pd.quantity,
         pd.unit_cost
       FROM purchased p
@@ -20,31 +24,47 @@ router.get("/by-transaction/:transId", async (req, res) => {
       JOIN inventory i ON i.inv_id = pd.inv_id
       WHERE p.trans_id = ?
       ORDER BY pd.pd_id ASC
-    `, [transId]);
+      `,
+      [transId]
+    );
 
-    res.json(rows);
+    res.json(Array.isArray(rows) ? rows : []);
   } catch (e) {
     console.error("purchased by transaction error:", e);
-    res.status(500).json({ message: "Failed to load purchased items" });
+    res.status(500).json({ message: "Failed to load purchased items", error: e.code || e.message });
   }
 });
 
-// Add purchased item (creates header if needed, deducts stock)
+/**
+ * Add purchased item
+ * POST /api/purchased
+ * body: { trans_id, user_id, inv_id, quantity, unit_cost }
+ */
 router.post("/", async (req, res) => {
   const { trans_id, user_id, inv_id, quantity, unit_cost } = req.body;
 
   if (!trans_id || !user_id || !inv_id || !quantity) {
-    return res.status(400).json({ message: "Missing required fields" });
+    return res.status(400).json({ message: "trans_id, user_id, inv_id, quantity are required" });
+  }
+
+  const transId = Number(trans_id);
+  const userId = Number(user_id);
+  const invId = Number(inv_id);
+  const qty = Number(quantity);
+  const unitCost = Number(unit_cost ?? 0);
+
+  if (!Number.isFinite(qty) || qty <= 0) {
+    return res.status(400).json({ message: "quantity must be > 0" });
   }
 
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
 
-    // 1) Ensure purchased header exists
+    // 1) Ensure purchased header exists for this transaction
     const [[existing]] = await conn.query(
       `SELECT purchased_id FROM purchased WHERE trans_id = ? LIMIT 1`,
-      [Number(trans_id)]
+      [transId]
     );
 
     let purchasedId = existing?.purchased_id;
@@ -53,7 +73,7 @@ router.post("/", async (req, res) => {
       const [ins] = await conn.query(
         `INSERT INTO purchased (user_id, trans_id, date_recorded)
          VALUES (?, ?, NOW())`,
-        [Number(user_id), Number(trans_id)]
+        [userId, transId]
       );
       purchasedId = ins.insertId;
     }
@@ -61,27 +81,27 @@ router.post("/", async (req, res) => {
     // 2) Lock inventory row
     const [[inv]] = await conn.query(
       `SELECT inv_id, quantity FROM inventory WHERE inv_id = ? FOR UPDATE`,
-      [Number(inv_id)]
+      [invId]
     );
 
     if (!inv) throw new Error("Inventory item not found");
-    if (Number(inv.quantity) < Number(quantity)) throw new Error("Not enough stock");
+    if (Number(inv.quantity || 0) < qty) throw new Error("Not enough stock");
 
-    // 3) Insert detail
+    // 3) Insert purchased detail
     await conn.query(
       `INSERT INTO purchased_details (purchased_id, inv_id, quantity, unit_cost)
        VALUES (?, ?, ?, ?)`,
-      [purchasedId, Number(inv_id), Number(quantity), Number(unit_cost || 0)]
+      [purchasedId, invId, qty, unitCost]
     );
 
     // 4) Deduct stock
     await conn.query(
       `UPDATE inventory SET quantity = quantity - ? WHERE inv_id = ?`,
-      [Number(quantity), Number(inv_id)]
+      [qty, invId]
     );
 
     await conn.commit();
-    res.status(201).json({ ok: true });
+    res.status(201).json({ ok: true, purchased_id: purchasedId });
   } catch (e) {
     await conn.rollback();
     console.error("purchased add error:", e);

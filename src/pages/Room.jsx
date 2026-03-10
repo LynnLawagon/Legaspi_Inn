@@ -1,3 +1,4 @@
+// src/pages/Room.jsx
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../lib/api";
 
@@ -21,14 +22,17 @@ export default function Room() {
     }
   }
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => {
+    loadAll();
+  }, []);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return rooms;
-    return rooms.filter((r) =>
-      String(r.room_number).toLowerCase().includes(s) ||
-      String(r.type_name).toLowerCase().includes(s)
+    return rooms.filter(
+      (r) =>
+        String(r.room_number).toLowerCase().includes(s) ||
+        String(r.type_name).toLowerCase().includes(s)
     );
   }, [rooms, q]);
 
@@ -37,12 +41,14 @@ export default function Room() {
     if (!room_number) return;
 
     const typeLabel = lookups.roomTypes
-      .map((t) => `${t.room_type_id}: ${t.type_name} (rate ${t.base_rate}, cap ${t.capacity})`)
+      .map(
+        (t) =>
+          `${t.room_type_id}: ${t.type_name} (rate ${t.base_rate}, cap ${t.capacity})`
+      )
       .join("\n");
     const room_type_id = window.prompt(`Enter room_type_id:\n${typeLabel}`);
     if (!room_type_id) return;
 
-    // FIX: use room_status_id (not status_id)
     const statusLabel = lookups.roomStatuses
       .map((s) => `${s.room_status_id}: ${s.status_name}`)
       .join("\n");
@@ -69,7 +75,10 @@ export default function Room() {
     if (!room_number) return;
 
     const typeLabel = lookups.roomTypes
-      .map((t) => `${t.room_type_id}: ${t.type_name} (rate ${t.base_rate}, cap ${t.capacity})`)
+      .map(
+        (t) =>
+          `${t.room_type_id}: ${t.type_name} (rate ${t.base_rate}, cap ${t.capacity})`
+      )
       .join("\n");
     const room_type_id = window.prompt(
       `room_type_id (current: ${r.room_type_id})\n${typeLabel}`,
@@ -77,13 +86,12 @@ export default function Room() {
     );
     if (!room_type_id) return;
 
-    // FIX: use room_status_id (not status_id)
     const statusLabel = lookups.roomStatuses
       .map((s) => `${s.room_status_id}: ${s.status_name}`)
       .join("\n");
     const status_id = window.prompt(
-      `status_id (current: ${r.room_status_id})\n${statusLabel}`,   // FIX
-      String(r.room_status_id)                                        // FIX
+      `status_id (current: ${r.room_status_id})\n${statusLabel}`,
+      String(r.room_status_id)
     );
     if (!status_id) return;
 
@@ -114,32 +122,26 @@ export default function Room() {
   }
 
   return (
-    <>
-      <header className="top-bar room-topbar">
-        <h1 className="page-title">Room</h1>
-        <div className="room-actions">
-          <div className="search-wrap">
-            <img src="/assets/images/search.png" alt="search" />
-            <input
-              type="text"
-              placeholder="Search by Room # or Type"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-          </div>
-          <button
-            type="button"
-            onClick={createRoom}
-            style={{
-              border: "none", borderRadius: 999, padding: "10px 14px", cursor: "pointer",
-              background: "rgba(217,217,217,0.9)", color: "#2C0735", fontWeight: 700,
-              boxShadow: "0 8px 18px rgba(0,0,0,0.10)",
-            }}
-          >
-            + New
-          </button>
-        </div>
-      </header>
+    <div className="room-page">
+<header className="page-header">
+  <h1 className="page-title">Room</h1>
+
+  <div className="page-actions">
+    <div className="search-wrap">
+      <img src="/assets/images/search.png" alt="search" />
+      <input
+        type="text"
+        placeholder="Search by Room # or Type"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+      />
+    </div>
+
+    <button type="button" onClick={createRoom} className="room-new-btn">
+      + New
+    </button>
+  </div>
+</header>
 
       <section className="room-card">
         <div className="room-table-wrap">
@@ -152,6 +154,7 @@ export default function Room() {
               <col style={{ width: "180px" }} />
               <col style={{ width: "70px" }} />
             </colgroup>
+
             <thead>
               <tr>
                 <th>Room #</th>
@@ -162,6 +165,7 @@ export default function Room() {
                 <th className="th-more">...</th>
               </tr>
             </thead>
+
             <tbody>
               {filtered.map((r) => (
                 <tr key={r.room_id}>
@@ -170,31 +174,39 @@ export default function Room() {
                   <td>{Number(r.base_rate).toFixed(2)}</td>
                   <td>{r.capacity}</td>
                   <td>{r.status_name}</td>
+
                   <td className="td-more" style={{ position: "relative" }}>
                     <img
                       src="/assets/images/more.png"
                       alt="more"
-                      onClick={() => setOpenMenuId((prev) => (prev === r.room_id ? null : r.room_id))}
+                      onClick={() =>
+                        setOpenMenuId((prev) =>
+                          prev === r.room_id ? null : r.room_id
+                        )
+                      }
                       style={{ cursor: "pointer" }}
                     />
+
                     {openMenuId === r.room_id && (
                       <div
-                        style={{
-                          position: "absolute", right: 10, top: 30, background: "#fff",
-                          borderRadius: 10, boxShadow: "0 10px 22px rgba(0,0,0,0.12)",
-                          overflow: "hidden", minWidth: 120, zIndex: 9999,
-                        }}
+                        className="room-menu"
                         onMouseLeave={() => setOpenMenuId(null)}
                       >
                         <button
-                          onClick={() => { setOpenMenuId(null); editRoom(r); }}
-                          style={{ width: "100%", padding: "10px 12px", border: "none", background: "transparent", textAlign: "left", cursor: "pointer" }}
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            editRoom(r);
+                          }}
                         >
                           Edit
                         </button>
+
                         <button
-                          onClick={() => { setOpenMenuId(null); deleteRoom(r); }}
-                          style={{ width: "100%", padding: "10px 12px", border: "none", background: "transparent", textAlign: "left", cursor: "pointer", color: "#b00020" }}
+                          className="danger"
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            deleteRoom(r);
+                          }}
                         >
                           Delete
                         </button>
@@ -203,15 +215,25 @@ export default function Room() {
                   </td>
                 </tr>
               ))}
+
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: 18, opacity: 0.7 }}>No rooms found</td>
+                  <td
+                    colSpan={6}
+                    style={{
+                      textAlign: "center",
+                      padding: 18,
+                      opacity: 0.7,
+                    }}
+                  >
+                    No rooms found
+                  </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
       </section>
-    </>
+    </div>
   );
 }

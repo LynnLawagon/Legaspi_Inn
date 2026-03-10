@@ -45,6 +45,7 @@ export default function Signup() {
         if (Array.isArray(rData) && rData[0]) setRoleId(String(rData[0].role_id));
       } catch (e) {
         if (!alive) return;
+        console.log(e);
         setErrMsg(e?.message || "Failed to load genders/roles");
       } finally {
         if (!alive) return;
@@ -62,6 +63,7 @@ export default function Signup() {
     if (!username.trim()) return "Username is required.";
     if (!password) return "Password is required.";
     if (password.length < 4) return "Password must be at least 4 characters.";
+    if (!confirmPassword) return "Confirm password is required.";
     if (password !== confirmPassword) return "Passwords do not match.";
     if (!genderId) return "Please select a gender.";
     if (!roleId) return "Please select a role.";
@@ -85,7 +87,7 @@ export default function Signup() {
           username: username.trim(),
           password,
           confirmPassword,
-          gender_id: Number(genderId),
+          gender_id: Number(genderId), // sent but backend will ignore if not stored
           role_id: Number(roleId),
           shift_start: shiftStart,
           shift_end: shiftEnd,
@@ -104,7 +106,7 @@ export default function Signup() {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-header">
-          <img className="auth-logo" src="/assets/images/logo.png" alt="Logo" />
+          <img className="auth-logo" src="/assets/images/logo-light.png" alt="Logo" />
           <h1 className="auth-title">Create account</h1>
           <p className="auth-subtitle">Register to access Legaspi Inn system</p>
         </div>
@@ -122,6 +124,7 @@ export default function Signup() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Choose a username"
+                autoComplete="username"
               />
             </label>
 
@@ -133,6 +136,7 @@ export default function Signup() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Create a password"
+                autoComplete="new-password"
               />
             </label>
 
@@ -144,6 +148,7 @@ export default function Signup() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Re-enter password"
+                autoComplete="new-password"
               />
             </label>
 

@@ -7,7 +7,15 @@ const router = express.Router();
 
 // SIGNUP  POST /api/auth/signup
 router.post("/signup", async (req, res) => {
-  const { username, password, confirmPassword, role_id, gender_id, shift_start, shift_end } = req.body;
+  const {
+    username,
+    password,
+    confirmPassword,
+    role_id,
+    gender_id,
+    shift_start,
+    shift_end,
+  } = req.body;
 
   if (!username || !password || !confirmPassword) {
     return res.status(400).json({ message: "Username and password are required" });
@@ -20,21 +28,31 @@ router.post("/signup", async (req, res) => {
   }
 
   try {
-    const [exists] = await pool.query("SELECT user_id FROM users WHERE username=?", [username]);
-    if (exists.length) return res.status(409).json({ message: "Username already exists" });
+    const [exists] = await pool.query(
+      "SELECT user_id FROM users WHERE username = ?",
+      [username.trim()]
+    );
+
+    if (exists.length) {
+      return res.status(409).json({ message: "Username already exists" });
+    }
 
     const password_hash = await bcrypt.hash(password, 10);
 
     await pool.query(
-      `INSERT INTO users (username, password_hash, role_id, shift_start, shift_end, gender_id)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [username, password_hash, Number(role_id), shift_start, shift_end, Number(gender_id)]
+      "INSERT INTO users (username, password_hash, role_id, gender_id, shift_start, shift_end) VALUES (?, ?, ?, ?, ?, ?)",
+      [username.trim(), password_hash, role_id, gender_id, shift_start, shift_end]
     );
 
-    res.status(201).json({ ok: true, message: "User created" });
-  } catch (e) {
-    console.error("signup error:", e);
-    res.status(500).json({ message: "Signup failed", error: e.code || e.message });
+    return res.status(201).json({ message: "Signup success" });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({
+      message: "Server error",
+      code: err.code,
+      sqlMessage: err.sqlMessage,
+      error: err.message,
+    });
   }
 });
 
@@ -42,44 +60,43 @@ router.post("/signup", async (req, res) => {
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
-  if (!username || !password)
+  if (!username || !password) {
     return res.status(400).json({ message: "Username and password are required" });
+  }
 
   try {
     const [rows] = await pool.query(
-      "SELECT user_id, username, password_hash, role_id, gender_id, shift_start, shift_end FROM users WHERE username=?",
-      [username]
+      "SELECT user_id, username, password_hash, role_id, gender_id, shift_start, shift_end FROM users WHERE username = ?",
+      [username.trim()]
     );
 
-    if (!rows.length) return res.status(401).json({ message: "Invalid username or password" });
+    if (!rows.length) {
+      return res.status(401).json({ message: "Invalid username or password" });
+    }
 
     const user = rows[0];
     const ok = await bcrypt.compare(password, user.password_hash);
-    if (!ok) return res.status(401).json({ message: "Invalid username or password" });
 
-    const secret = process.env.JWT_SECRET || "dev_secret";
+    if (!ok) {
+      return res.status(401).json({ message: "Invalid username or password" });
+    }
 
     const token = jwt.sign(
-      { user_id: user.user_id, role_id: user.role_id, username: user.username },
-      secret,
-      { expiresIn: "1d" }
+      { user_id: user.user_id, role_id: user.role_id },
+      process.env.JWT_SECRET || "dev_secret",
+      { expiresIn: "14d" }
     );
 
-    res.json({
-      ok: true,
-      token,
-      user: {
-        user_id: user.user_id,
-        username: user.username,
-        role_id: user.role_id,
-        gender_id: user.gender_id,
-        shift_start: user.shift_start,
-        shift_end: user.shift_end,
-      },
+    delete user.password_hash;
+    return res.json({ token, user });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({
+      message: "Server error",
+      code: err.code,
+      sqlMessage: err.sqlMessage,
+      error: err.message,
     });
-  } catch (e) {
-    console.error("login error:", e);
-    res.status(500).json({ message: "Login failed", error: e.code || e.message });
   }
 });
 

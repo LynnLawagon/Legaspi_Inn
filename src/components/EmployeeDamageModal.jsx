@@ -1,10 +1,16 @@
-import { useEffect, useMemo } from "react";
+//src/components/EmployeeDamageModal.jsx
+import { useEffect, useMemo, useState } from "react";
+import { apiFetch } from "../lib/api";
+import "./EmployeeDamageModal.css";
 
 export default function EmployeeDamageModal({
   open,
   onClose,
   user,
   damageRows = [],
+  items = [],          // ✅ inventory list from /inventory
+  locked = false,      // optional lock if you want (can be false always)
+  onAdded,             // ✅ callback: refresh damage rows + inventory
 }) {
   // ERD: damage_status(status_id, status_name)
   const damageStatuses = useMemo(
@@ -18,18 +24,35 @@ export default function EmployeeDamageModal({
   );
 
   function statusName(status_id) {
-    return (
-      damageStatuses.find((s) => s.status_id === Number(status_id))
-        ?.status_name ?? "—"
-    );
+    return damageStatuses.find((s) => s.status_id === Number(status_id))?.status_name ?? "—";
   }
 
   const totalDamages = useMemo(() => {
-    return (damageRows || []).reduce(
-      (sum, r) => sum + Number(r.cost_to_hotel || 0),
-      0
-    );
+    return (damageRows || []).reduce((sum, r) => sum + Number(r.cost_to_hotel || r.cost || 0), 0);
   }, [damageRows]);
+
+  // ✅ Add form state
+  const [invId, setInvId] = useState("");
+  const [statusId, setStatusId] = useState("1");
+  const [cost, setCost] = useState("");
+  const [err, setErr] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const selected = useMemo(
+    () => items.find((x) => String(x.inv_id) === String(invId)),
+    [items, invId]
+  );
+  const stock = Number(selected?.quantity || 0);
+
+  // Reset on open
+  useEffect(() => {
+    if (!open) return;
+    setInvId("");
+    setStatusId("1");
+    setCost("");
+    setErr("");
+    setSubmitting(false);
+  }, [open, user?.user_id]);
 
   // ESC close
   useEffect(() => {
@@ -40,17 +63,53 @@ export default function EmployeeDamageModal({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
-  // ✅ LOCK BG scroll (MUST be inside component)
+  // ✅ LOCK BG scroll
   useEffect(() => {
     if (!open) return;
-
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-
     return () => {
       document.body.style.overflow = previousOverflow;
     };
   }, [open]);
+
+  async function handleAdd(e) {
+    e.preventDefault();
+    if (locked) return;
+
+    setErr("");
+
+    if (!user?.user_id) return setErr("No employee selected.");
+    if (!invId) return setErr("Please select an inventory item.");
+
+    const costNum = Number(cost || 0);
+    if (!Number.isFinite(costNum) || costNum <= 0) return setErr("Cost must be greater than 0.");
+
+    setSubmitting(true);
+    try {
+      // ✅ Change endpoint if lahi inyong route
+await apiFetch("/employee-damage", {
+  method: "POST",
+  body: JSON.stringify({
+    user_id: Number(user.user_id),
+    inventory_id: Number(invId),
+    status_id: Number(statusId),
+    cost: costNum,
+  }),
+});
+
+      // reset
+      setInvId("");
+      setStatusId("1");
+      setCost("");
+
+      await onAdded?.();
+    } catch (e2) {
+      setErr(e2?.message || "Failed to add employee damage.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   if (!open) return null;
 
@@ -63,18 +122,8 @@ export default function EmployeeDamageModal({
         if (e.target.id === "employeeDamageModal") onClose?.();
       }}
     >
-      <div
-        className="edm-card"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="edmTitle"
-      >
-        <button
-          className="edm-close"
-          type="button"
-          aria-label="Close"
-          onClick={onClose}
-        >
+      <div className="edm-card" role="dialog" aria-modal="true" aria-labelledby="edmTitle">
+        <button className="edm-close" type="button" aria-label="Close" onClick={onClose}>
           ✕
         </button>
 
@@ -82,19 +131,66 @@ export default function EmployeeDamageModal({
           <div>
             <h2 id="edmTitle">Employee Damage</h2>
             <p className="edm-sub">
-              {user?.name ?? "Employee"} <span className="edm-dot">•</span>{" "}
-              {user?.user_id ?? "U0001"}
+              {user?.username ?? user?.name ?? "Employee"} <span className="edm-dot">•</span>{" "}
+              {user?.user_id ?? "—"}
             </p>
           </div>
 
           <div className="edm-kpis">
-            <span className="edm-chip">
-              Total: ₱{totalDamages.toLocaleString()}
-            </span>
-            <span className="edm-chip ghost">
-              Count: {(damageRows || []).length}
-            </span>
+            <span className="edm-chip">Total: ₱{totalDamages.toLocaleString()}</span>
+            <span className="edm-chip ghost">Count: {(damageRows || []).length}</span>
           </div>
+        </div>
+
+        {/* ✅ ADD DAMAGE FORM */}
+        <div className="edm-add">
+          <div className="edm-add-title">Add Damage</div>
+          <div className="edm-add-sub">Please select an inventory item.</div>
+
+          {err ? <div className="edm-alert">{err}</div> : null}
+          {locked ? <div className="edm-lock">Locked</div> : null}
+
+          <form className="edm-add-grid" onSubmit={handleAdd}>
+            <label className="edm-field">
+              <span>Inventory</span>
+              <select value={invId} onChange={(e) => setInvId(e.target.value)} disabled={locked}>
+                <option value="">Select inventory</option>
+                {items.map((it) => (
+<option key={it.inv_id} value={it.inv_id}>
+  {it.name} (stock: {it.quantity})
+</option>
+                ))}
+              </select>
+
+            </label>
+
+            <label className="edm-field">
+              <span>Status</span>
+              <select value={statusId} onChange={(e) => setStatusId(e.target.value)} disabled={locked}>
+                {damageStatuses.map((s) => (
+                  <option key={s.status_id} value={s.status_id}>
+                    {s.status_name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="edm-field">
+              <span>Cost to Hotel (₱)</span>
+              <input
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={cost}
+                onChange={(e) => setCost(e.target.value)}
+                disabled={locked}
+              />
+            </label>
+
+            <button className="edm-btn primary" type="submit" disabled={locked || submitting}>
+              {submitting ? "Adding..." : "Add"}
+            </button>
+          </form>
         </div>
 
         <div className="edm-divider" />
@@ -122,16 +218,16 @@ export default function EmployeeDamageModal({
                 damageRows.map((r) => (
                   <tr key={r.edam_id}>
                     <td className="edm-mono">ED{r.edam_id}</td>
-                    <td title={r.inventory_name || ""}>
-                      {r.inventory_name ?? `INV-${r.inventory_id}`}
+                    <td title={r.inventory_name || r.item_name || ""}>
+                      {r.inventory_name ?? r.item_name ?? `INV-${r.inv_id ?? r.inventory_id}`}
                     </td>
                     <td className="edm-mono">{r.date_reported}</td>
                     <td>
-                      <span className={`edm-status s-${String(r.status_id)}`}>
-                        {statusName(r.status_id)}
+                      <span className={`edm-status s-${String(r.damage_status_id ?? r.status_id)}`}>
+                        {statusName(r.damage_status_id ?? r.status_id)}
                       </span>
                     </td>
-                    <td>₱{Number(r.cost_to_hotel || 0).toLocaleString()}</td>
+                    <td>₱{Number(r.cost_to_hotel ?? r.cost ?? 0).toLocaleString()}</td>
                   </tr>
                 ))
               )}

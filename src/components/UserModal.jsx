@@ -1,3 +1,4 @@
+// src/components/UserModal.jsx
 import { useEffect, useMemo, useState } from "react";
 import EmployeeDamageModal from "./EmployeeDamageModal";
 import { apiFetch } from "../lib/api";
@@ -24,6 +25,7 @@ export default function UserModal({ open, onClose, onLogout, user }) {
 
   // (your existing damageRows demo; keep if you want)
   const [damageRows, setDamageRows] = useState(user?.employee_damages ?? []);
+  const [invItems, setInvItems] = useState([]);
 
   // lock bg scroll
   useEffect(() => {
@@ -130,6 +132,20 @@ export default function UserModal({ open, onClose, onLogout, user }) {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+  if (!openEDM) return;
+
+  (async () => {
+    try {
+      const rows = await apiFetch("/inventory");
+      setInvItems(Array.isArray(rows) ? rows : []);
+    } catch (e) {
+      console.error("Failed to load inventory", e);
+      setInvItems([]);
+    }
+  })();
+}, [openEDM]);  
 
   const roleName =
     roles.find((r) => Number(r.role_id) === Number(form.role_id))?.role_name ??
@@ -288,12 +304,13 @@ export default function UserModal({ open, onClose, onLogout, user }) {
         </div>
       </div>
 
-      <EmployeeDamageModal
-        open={openEDM}
-        onClose={() => setOpenEDM(false)}
-        user={user ?? form}
-        damageRows={damageRows}
-      />
+<EmployeeDamageModal
+  open={openEDM}
+  onClose={() => setOpenEDM(false)}
+  user={user ?? form}
+  damageRows={damageRows}
+  items={invItems}
+/>
     </>
   );
 }

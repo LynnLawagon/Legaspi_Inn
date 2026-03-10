@@ -1,11 +1,11 @@
 const express = require("express");
 const pool = require("../db");
-const { authRequired } = require("../middleware/auth"); // ✅ protect endpoints
+// const { authRequired } = require("../middleware/auth"); // remove
 
 const router = express.Router();
 
-// GET /api/meta/genders
-router.get("/genders", authRequired, async (req, res) => {
+// GET /api/meta/genders  (PUBLIC)
+router.get("/genders", async (req, res) => {
   try {
     const [rows] = await pool.query(
       "SELECT gender_id, gender_name FROM gender ORDER BY gender_id ASC"
@@ -19,8 +19,8 @@ router.get("/genders", authRequired, async (req, res) => {
   }
 });
 
-// GET /api/meta/roles
-router.get("/roles", authRequired, async (req, res) => {
+// GET /api/meta/roles  (PUBLIC)
+router.get("/roles", async (req, res) => {
   try {
     const [rows] = await pool.query(
       "SELECT role_id, role_name FROM roles ORDER BY role_id ASC"

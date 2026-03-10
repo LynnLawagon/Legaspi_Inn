@@ -1,3 +1,4 @@
+//src/components/ReceiptModal.jsx
 import { useEffect, useMemo, useState } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";

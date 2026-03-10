@@ -1,15 +1,11 @@
 // src/lib/api.js
-import { getToken as getSessionToken } from "../utils/auth"; // ✅ imports first
+import { getSession } from "../utils/auth";
 
 export const API_BASE = "/api";
 
-export function getToken() {
-  // read from legaspi_session
-  return getSessionToken() || "";
-}
-
 export async function apiFetch(path, options = {}) {
-  const token = getToken();
+  const session = getSession();
+  const token = session?.token;
 
   const headers = {
     ...(options.headers || {}),
@@ -29,10 +25,20 @@ export async function apiFetch(path, options = {}) {
     headers,
   });
 
-  const data = await res.json().catch(() => null);
+  // parse json if possible
+  let data = null;
+  const ct = res.headers.get("content-type") || "";
+  if (ct.includes("application/json")) {
+    data = await res.json().catch(() => null);
+  } else {
+    data = await res.text().catch(() => null);
+  }
 
   if (!res.ok) {
-    const msg = data?.message || data?.error || `Request failed (${res.status})`;
+    const msg =
+      (data && data.message) ||
+      (data && data.error) ||
+      (typeof data === "string" ? data : `Request failed (${res.status})`);
     const err = new Error(msg);
     err.status = res.status;
     err.data = data;

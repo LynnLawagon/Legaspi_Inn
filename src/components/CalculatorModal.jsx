@@ -1,3 +1,4 @@
+//src/components/CalculatorModal.jsx
 import { useEffect, useMemo, useState } from "react";
 import "./CalculatorModal.css";
 

@@ -42,9 +42,9 @@ export default function Login() {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-header">
-          <img className="auth-logo" src="/assets/images/logo.png" alt="Logo" />
-          <h1 className="auth-title">Welcome back</h1>
-          <p className="auth-subtitle">Log in to continue to Legaspi Inn</p>
+          <img className="auth-logo" src="/assets/images/logo-light.png" alt="Logo" />
+          <h1 className="auth-title">Welcome back!</h1>
+          <p className="auth-subtitle">Login to continue</p>
         </div>
 
         {errMsg && <div className="auth-alert">{errMsg}</div>}

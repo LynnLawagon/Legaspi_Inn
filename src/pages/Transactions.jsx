@@ -1,7 +1,9 @@
+// src/pages/Transactions.jsx
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../lib/api";
 import SalesModal from "../components/SalesModal";
 import ReceiptModal from "../components/ReceiptModal";
+import GuestDamageModal from "../components/GuestDamageModal";
 
 function splitToDisplayParts(dtLocal) {
   if (!dtLocal) return { date: "—", time: "" };
@@ -23,7 +25,7 @@ function nowLocalIso() {
   const d = new Date();
   const off = d.getTimezoneOffset();
   const local = new Date(d.getTime() - off * 60000);
-  return local.toISOString().slice(0, 16); // datetime-local expects YYYY-MM-DDTHH:mm
+  return local.toISOString().slice(0, 16);
 }
 
 const emptyForm = {
@@ -39,7 +41,6 @@ const emptyForm = {
 export default function Transactions() {
   const [transactions, setTransactions] = useState([]);
   const [lookups, setLookups] = useState({ guests: [], users: [], rooms: [] });
-
   const [inventoryItems, setInventoryItems] = useState([]);
 
   const [search, setSearch] = useState("");
@@ -57,7 +58,11 @@ export default function Transactions() {
 
   // Sales modal
   const [salesOpen, setSalesOpen] = useState(false);
-  const [salesTarget, setSalesTarget] = useState({ transId: "", guest: "", userId: null });
+  const [salesTarget, setSalesTarget] = useState({ transId: "", guest: "", userId: null, room: "" });
+
+  // Guest Damage modal
+  const [damageOpen, setDamageOpen] = useState(false);
+  const [damageTarget, setDamageTarget] = useState({ transId: "", guest: "", room: "", userId: null });
 
   async function loadAll() {
     setLoading(true);
@@ -71,7 +76,7 @@ export default function Transactions() {
       setLookups({
         guests: Array.isArray(lookupData.guests) ? lookupData.guests : [],
         users: Array.isArray(lookupData.users) ? lookupData.users : [],
-        rooms: Array.isArray(lookupData.rooms) ? lookupData.rooms : [], // backend filtered to Available
+        rooms: Array.isArray(lookupData.rooms) ? lookupData.rooms : [],
       });
     } catch (e) {
       console.error("Transactions load failed:", e);
@@ -84,9 +89,7 @@ export default function Transactions() {
   async function loadInventory() {
     try {
       const rows = await apiFetch("/inventory");
-      const list = Array.isArray(rows)
-        ? rows.filter((x) => Number(x.quantity || 0) > 0)
-        : [];
+      const list = Array.isArray(rows) ? rows.filter((x) => Number(x.quantity || 0) > 0) : [];
       setInventoryItems(list);
     } catch {
       setInventoryItems([]);
@@ -102,10 +105,11 @@ export default function Transactions() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return transactions;
-    return transactions.filter((t) =>
-      (t.guest_name || "").toLowerCase().includes(q) ||
-      (t.username || "").toLowerCase().includes(q) ||
-      (t.room_number || "").toLowerCase().includes(q)
+    return transactions.filter(
+      (t) =>
+        (t.guest_name || "").toLowerCase().includes(q) ||
+        (t.username || "").toLowerCase().includes(q) ||
+        (t.room_number || "").toLowerCase().includes(q)
     );
   }, [search, transactions]);
 
@@ -162,9 +166,7 @@ export default function Transactions() {
         trans_status_id: Number(txForm.trans_status_id) || 1,
         checkin: txForm.checkin || null,
         checkout: txForm.checkout || null,
-        actual_rate_charged: txForm.actual_rate_charged
-          ? Number(txForm.actual_rate_charged)
-          : null,
+        actual_rate_charged: txForm.actual_rate_charged ? Number(txForm.actual_rate_charged) : null,
       };
 
       if (editingId) {
@@ -202,7 +204,8 @@ export default function Transactions() {
     setSalesTarget({
       transId: tx.trans_id,
       guest: tx.guest_name || "",
-      userId: tx.user_id || null, // uses staff on transaction as user_id
+      userId: tx.user_id || null,
+      room: tx.room_number || "",
     });
     setSalesOpen(true);
   }
@@ -211,7 +214,20 @@ export default function Transactions() {
     setSalesOpen(false);
   }
 
-  // auto-fill amount from selected room base_rate
+  function openDamageModal(tx) {
+    setDamageTarget({
+      transId: tx.trans_id,
+      guest: tx.guest_name || "",
+      room: tx.room_number || "",
+      userId: tx.user_id || null,
+    });
+    setDamageOpen(true);
+  }
+
+  function closeDamageModal() {
+    setDamageOpen(false);
+  }
+
   function handleRoomChange(room_id) {
     const room = lookups.rooms.find((r) => String(r.room_id) === String(room_id));
     setTxForm((p) => ({
@@ -223,20 +239,21 @@ export default function Transactions() {
 
   return (
     <>
-      <header className="top-bar tx-topbar">
-        <h1 className="page-title">Transactions</h1>
-        <div className="tx-actions">
-          <div className="search-wrap">
-            <img src="/assets/images/search.png" alt="search" />
-            <input
-              type="text"
-              placeholder="Search by Guest Name / Room"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
-      </header>
+<header className="page-header">
+  <h1 className="page-title">Transactions</h1>
+
+  <div className="page-actions">
+    <div className="search-wrap">
+      <img src="/assets/images/search.png" alt="search" />
+      <input
+        type="text"
+        placeholder="Search by Guest Name / Room"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+    </div>
+  </div>
+</header>
 
       <section className="tx-card">
         <div className="tx-table-wrap">
@@ -251,7 +268,7 @@ export default function Transactions() {
               <col style={{ width: "160px" }} />
               <col style={{ width: "90px" }} />
               <col style={{ width: "160px" }} />
-              <col style={{ width: "52px" }} />
+              <col style={{ width: "92px" }} /> {/* for 2 icons */}
               <col style={{ width: "130px" }} />
             </colgroup>
 
@@ -289,8 +306,8 @@ export default function Transactions() {
                   const ci = splitToDisplayParts(t.checkin);
                   const co = splitToDisplayParts(t.checkout);
                   const dc = splitToDisplayParts(t.date_created);
-                  const statusName = (t.trans_status_name || "unpaid").toLowerCase();
-                  const isPaid = statusName === "paid";
+                  const isPaid = Number(t.trans_status_id) === 2;
+                  const statusName = isPaid ? "paid" : "unpaid";
 
                   return (
                     <tr key={t.trans_id} className={`tx-row ${isPaid ? "paid" : "unpaid"}`}>
@@ -335,6 +352,7 @@ export default function Transactions() {
                         <span className="muted">{dc.time}</span>
                       </td>
 
+                      {/* SALES + DAMAGE icons */}
                       <td className="col-action">
                         <button
                           className="cart-btn"
@@ -344,8 +362,19 @@ export default function Transactions() {
                         >
                           <img className="row-icon" src="/assets/images/sales.png" alt="cart" />
                         </button>
+
+                        <button
+                          className="cart-btn"
+                          type="button"
+                          onClick={() => openDamageModal(t)}
+                          title="Report Damage"
+                          style={{ marginLeft: 8 }}
+                        >
+                          <img className="row-icon" src="/assets/images/damage.png" alt="damage" />
+                        </button>
                       </td>
 
+                      {/* Edit/Delete not locked */}
                       <td className="td-center">
                         <button className="btn small" type="button" onClick={() => openTxModal(t)}>
                           Edit
@@ -420,7 +449,6 @@ export default function Transactions() {
                 </select>
               </label>
 
-              {/* rooms already filtered to Available by backend */}
               <label className="field">
                 <span>Room</span>
                 <select value={txForm.room_id} onChange={(e) => handleRoomChange(e.target.value)} required>
@@ -504,8 +532,24 @@ export default function Transactions() {
         guestName={salesTarget.guest}
         userId={salesTarget.userId}
         items={inventoryItems}
-        onSaved={() => {
-          loadInventory(); // refresh stock
+        onSave={async () => {
+          await loadInventory();
+          await loadAll();
+        }}
+      />
+
+      <GuestDamageModal
+        open={damageOpen}
+        onClose={closeDamageModal}
+        transId={damageTarget.transId}
+        guestName={damageTarget.guest}
+        roomNumber={damageTarget.room}
+        items={inventoryItems}
+        onSave={async () => {
+          // Later: API save
+          closeDamageModal();
+          await loadInventory();
+          await loadAll();
         }}
       />
     </>
