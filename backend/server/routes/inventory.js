@@ -2,6 +2,13 @@ const express = require("express");
 const pool = require("../db");
 const router = express.Router();
 
+/**
+ * RULE:
+ * qty = 0 => Out of Stock
+ * qty < 50 => Low Stock
+ * qty >= 50 => Available
+ */
+
 function getThreshold(req) {
   const t = Number(req.query.threshold ?? 50);
   return Number.isFinite(t) && t >= 1 ? t : 50;
@@ -20,6 +27,7 @@ router.get("/", async (req, res) => {
         i.inv_id,
         i.item_name,
         i.quantity,
+        i.item_value,
         i.category_id,
         i.inv_type_id,
         i.inv_status_id,
@@ -45,8 +53,9 @@ router.get("/", async (req, res) => {
            OR c.category_name LIKE ?
            OR t.type_name LIKE ?
            OR s.status_name LIKE ?
+           OR CAST(i.item_value AS CHAR) LIKE ?
       `;
-      params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
+      params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
     }
 
     sql += ` ORDER BY i.inv_id DESC`;
@@ -55,7 +64,10 @@ router.get("/", async (req, res) => {
     res.json(Array.isArray(rows) ? rows : []);
   } catch (e) {
     console.error("inventory list error:", e);
-    res.status(500).json({ message: "Failed to fetch inventory", error: e.code || e.message });
+    res.status(500).json({
+      message: "Failed to fetch inventory",
+      error: e.code || e.message,
+    });
   }
 });
 
@@ -67,9 +79,11 @@ router.get("/lookups", async (req, res) => {
     const [categories] = await pool.query(
       `SELECT category_id, category_name FROM inventory_category ORDER BY category_name ASC`
     );
+
     const [types] = await pool.query(
       `SELECT inv_type_id, type_name FROM inventory_type ORDER BY type_name ASC`
     );
+
     const [statuses] = await pool.query(
       `SELECT inv_status_id, status_name FROM inventory_status ORDER BY status_name ASC`
     );
@@ -81,7 +95,10 @@ router.get("/lookups", async (req, res) => {
     });
   } catch (e) {
     console.error("inventory lookups error:", e);
-    res.status(500).json({ message: "Failed to load inventory lookups", error: e.code || e.message });
+    res.status(500).json({
+      message: "Failed to load inventory lookups",
+      error: e.code || e.message,
+    });
   }
 });
 
@@ -99,6 +116,7 @@ router.get("/low-stock", async (req, res) => {
         i.inv_id,
         i.item_name,
         i.quantity,
+        i.item_value,
         c.category_name
       FROM inventory i
       LEFT JOIN inventory_category c ON c.category_id = i.category_id
@@ -112,7 +130,10 @@ router.get("/low-stock", async (req, res) => {
     res.json(Array.isArray(rows) ? rows : []);
   } catch (e) {
     console.error("inventory low-stock error:", e);
-    res.status(500).json({ message: "Failed to fetch low stock items", error: e.code || e.message });
+    res.status(500).json({
+      message: "Failed to fetch low stock items",
+      error: e.code || e.message,
+    });
   }
 });
 
@@ -124,18 +145,21 @@ router.get("/summary", async (req, res) => {
     const threshold = getThreshold(req);
 
     const [totalItemsRow] = await pool.query(
-      "SELECT COUNT(*) AS total FROM inventory"
+      `SELECT COUNT(*) AS total FROM inventory`
     );
+
     const [availableRow] = await pool.query(
-      "SELECT COUNT(*) AS total FROM inventory WHERE COALESCE(quantity, 0) >= ?",
+      `SELECT COUNT(*) AS total FROM inventory WHERE COALESCE(quantity, 0) >= ?`,
       [threshold]
     );
+
     const [lowRow] = await pool.query(
-      "SELECT COUNT(*) AS total FROM inventory WHERE COALESCE(quantity, 0) BETWEEN 1 AND ?",
+      `SELECT COUNT(*) AS total FROM inventory WHERE COALESCE(quantity, 0) BETWEEN 1 AND ?`,
       [threshold - 1]
     );
+
     const [outRow] = await pool.query(
-      "SELECT COUNT(*) AS total FROM inventory WHERE COALESCE(quantity, 0) = 0"
+      `SELECT COUNT(*) AS total FROM inventory WHERE COALESCE(quantity, 0) = 0`
     );
 
     res.json({
@@ -147,7 +171,10 @@ router.get("/summary", async (req, res) => {
     });
   } catch (e) {
     console.error("inventory summary error:", e);
-    res.status(500).json({ message: "Failed to load inventory summary", error: e.code || e.message });
+    res.status(500).json({
+      message: "Failed to load inventory summary",
+      error: e.code || e.message,
+    });
   }
 });
 
@@ -155,7 +182,14 @@ router.get("/summary", async (req, res) => {
  * POST /api/inventory
  */
 router.post("/", async (req, res) => {
-  const { item_name, category_id, inv_type_id, quantity, inv_status_id } = req.body;
+  const {
+    item_name,
+    category_id,
+    inv_type_id,
+    quantity,
+    item_value,
+    inv_status_id,
+  } = req.body;
 
   if (!item_name || !category_id || !inv_type_id || inv_status_id == null) {
     return res.status(400).json({
@@ -163,17 +197,30 @@ router.post("/", async (req, res) => {
     });
   }
 
+  const qtyNum = Number(quantity ?? 0);
+  const valueNum = Number(item_value ?? 0);
+
+  if (!Number.isFinite(qtyNum) || qtyNum < 0) {
+    return res.status(400).json({ message: "quantity must be a valid non-negative number" });
+  }
+
+  if (!Number.isFinite(valueNum) || valueNum < 0) {
+    return res.status(400).json({ message: "item_value must be a valid non-negative number" });
+  }
+
   try {
     const [r] = await pool.query(
       `
-      INSERT INTO inventory (item_name, category_id, inv_type_id, quantity, inv_status_id)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO inventory
+      (item_name, category_id, inv_type_id, quantity, item_value, inv_status_id)
+      VALUES (?, ?, ?, ?, ?, ?)
       `,
       [
         String(item_name).trim(),
         Number(category_id),
         Number(inv_type_id),
-        Number(quantity ?? 0),
+        qtyNum,
+        valueNum,
         Number(inv_status_id),
       ]
     );
@@ -181,7 +228,10 @@ router.post("/", async (req, res) => {
     res.status(201).json({ inv_id: r.insertId });
   } catch (e) {
     console.error("create inventory error:", e);
-    res.status(500).json({ message: "Failed to create inventory item", error: e.code || e.message });
+    res.status(500).json({
+      message: "Failed to create inventory item",
+      error: e.code || e.message,
+    });
   }
 });
 
@@ -189,30 +239,55 @@ router.post("/", async (req, res) => {
  * PUT /api/inventory/:id
  */
 router.put("/:id", async (req, res) => {
-  const { item_name, category_id, inv_type_id, quantity, inv_status_id } = req.body;
+  const {
+    item_name,
+    category_id,
+    inv_type_id,
+    quantity,
+    item_value,
+    inv_status_id,
+  } = req.body;
+
+  const qtyNum = Number(quantity ?? 0);
+  const valueNum = Number(item_value ?? 0);
+
+  if (!Number.isFinite(qtyNum) || qtyNum < 0) {
+    return res.status(400).json({ message: "quantity must be a valid non-negative number" });
+  }
+
+  if (!Number.isFinite(valueNum) || valueNum < 0) {
+    return res.status(400).json({ message: "item_value must be a valid non-negative number" });
+  }
 
   try {
     const [r] = await pool.query(
       `
       UPDATE inventory
-      SET item_name=?, category_id=?, inv_type_id=?, quantity=?, inv_status_id=?
+      SET item_name=?, category_id=?, inv_type_id=?, quantity=?, item_value=?, inv_status_id=?
       WHERE inv_id=?
       `,
       [
         String(item_name).trim(),
         Number(category_id),
         Number(inv_type_id),
-        Number(quantity ?? 0),
+        qtyNum,
+        valueNum,
         Number(inv_status_id),
         Number(req.params.id),
       ]
     );
 
-    if (r.affectedRows === 0) return res.status(404).json({ message: "Item not found" });
+    if (r.affectedRows === 0) {
+      return res.status(404).json({ message: "Item not found" });
+    }
+
     res.json({ updated: r.affectedRows });
   } catch (e) {
     console.error("update inventory error:", e);
-    res.status(500).json({ message: "Failed to update inventory item", error: e.code || e.message });
+    res.status(500).json({
+      message: "Failed to update inventory item",
+      error: e.code || e.message,
+    });
   }
 });
 
@@ -221,13 +296,22 @@ router.put("/:id", async (req, res) => {
  */
 router.delete("/:id", async (req, res) => {
   try {
-    const [r] = await pool.query(`DELETE FROM inventory WHERE inv_id=?`, [Number(req.params.id)]);
+    const [r] = await pool.query(
+      `DELETE FROM inventory WHERE inv_id=?`,
+      [Number(req.params.id)]
+    );
 
-    if (r.affectedRows === 0) return res.status(404).json({ message: "Item not found" });
+    if (r.affectedRows === 0) {
+      return res.status(404).json({ message: "Item not found" });
+    }
+
     res.json({ deleted: r.affectedRows });
   } catch (e) {
     console.error("delete inventory error:", e);
-    res.status(500).json({ message: "Failed to delete inventory item", error: e.code || e.message });
+    res.status(500).json({
+      message: "Failed to delete inventory item",
+      error: e.code || e.message,
+    });
   }
 });
 

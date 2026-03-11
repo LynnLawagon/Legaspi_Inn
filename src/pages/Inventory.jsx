@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "../lib/api";
 
+function fmtMoney(v) {
+  const n = Number(v || 0);
+  return `₱${n.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 export default function Inventory() {
   const [items, setItems] = useState([]);
   const [lookups, setLookups] = useState({ categories: [], types: [], statuses: [] });
@@ -51,8 +59,9 @@ export default function Inventory() {
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return items;
+
     return items.filter((x) =>
-      `${x.item_name || ""} ${x.category_name || ""} ${x.type_name || ""} ${x.computed_status || x.status_name || ""}`
+      `${x.item_name || ""} ${x.category_name || ""} ${x.type_name || ""} ${x.computed_status || x.status_name || ""} ${x.item_value || ""}`
         .toLowerCase()
         .includes(s)
     );
@@ -121,6 +130,15 @@ export default function Inventory() {
       return;
     }
 
+    const valueStr = window.prompt("Item Value in pesos (₱):", "0");
+    if (valueStr == null) return;
+    const item_value = Number(valueStr);
+
+    if (!Number.isFinite(item_value) || item_value < 0) {
+      alert("Item value must be a valid number (0 or higher).");
+      return;
+    }
+
     try {
       await apiFetch("/inventory", {
         method: "POST",
@@ -129,6 +147,7 @@ export default function Inventory() {
           category_id: Number(category_id),
           inv_type_id: Number(inv_type_id),
           quantity,
+          item_value,
           inv_status_id: Number(inv_status_id),
         }),
       });
@@ -169,12 +188,21 @@ export default function Inventory() {
     );
     if (!inv_status_id) return;
 
-    const qtyStr = window.prompt("Quantity:", String(it.quantity));
+    const qtyStr = window.prompt("Quantity:", String(it.quantity ?? 0));
     if (qtyStr == null) return;
     const quantity = Number(qtyStr);
 
     if (!Number.isFinite(quantity) || quantity < 0) {
       alert("Quantity must be a valid number (0 or higher).");
+      return;
+    }
+
+    const valueStr = window.prompt("Item Value in pesos (₱):", String(it.item_value ?? 0));
+    if (valueStr == null) return;
+    const item_value = Number(valueStr);
+
+    if (!Number.isFinite(item_value) || item_value < 0) {
+      alert("Item value must be a valid number (0 or higher).");
       return;
     }
 
@@ -186,6 +214,7 @@ export default function Inventory() {
           category_id: Number(category_id),
           inv_type_id: Number(inv_type_id),
           quantity,
+          item_value,
           inv_status_id: Number(inv_status_id),
         }),
       });
@@ -260,7 +289,7 @@ export default function Inventory() {
             <img src="/assets/images/search.png" alt="search" />
             <input
               type="text"
-              placeholder="Search item, category, type, status..."
+              placeholder="Search item, category, type, status, value..."
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
@@ -277,6 +306,7 @@ export default function Inventory() {
                 <th>Category</th>
                 <th>Type</th>
                 <th>Qty</th>
+                <th>Item Value</th>
                 <th>Status</th>
                 <th>...</th>
               </tr>
@@ -285,7 +315,7 @@ export default function Inventory() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: 18, opacity: 0.7 }}>
+                  <td colSpan={7} style={{ textAlign: "center", padding: 18, opacity: 0.7 }}>
                     Loading...
                   </td>
                 </tr>
@@ -298,6 +328,7 @@ export default function Inventory() {
                     <td>{it.category_name}</td>
                     <td>{it.type_name}</td>
                     <td>{it.quantity}</td>
+                    <td>{fmtMoney(it.item_value)}</td>
                     <td>{it.computed_status || it.status_name || "—"}</td>
                     <td className="td-action">
                       <button
@@ -323,7 +354,7 @@ export default function Inventory() {
 
               {!loading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: 18, opacity: 0.7 }}>
+                  <td colSpan={7} style={{ textAlign: "center", padding: 18, opacity: 0.7 }}>
                     No items found
                   </td>
                 </tr>
