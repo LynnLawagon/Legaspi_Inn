@@ -861,12 +861,14 @@ img{
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: visible;
 }
 
 .room-table-wrap{
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 .room-new-btn{
@@ -884,6 +886,11 @@ img{
   letter-spacing: 2px;
 }
 
+.td-more{
+  position: relative;
+  overflow: visible !important;
+}
+
 .td-more img{
   width: 18px;
   height: 18px;
@@ -891,6 +898,12 @@ img{
   margin: 0 auto;
   cursor: pointer;
   opacity: 0.9;
+}
+
+.room-table tbody td:last-child{
+  overflow: visible !important;
+  text-overflow: clip !important;
+  position: relative;
 }
 
 .room-menu{
@@ -1698,7 +1711,6 @@ img{
 
 @media (min-width: 1024px){
 
-  /* 2 equal main columns */
   .dashboard-main{
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
@@ -1706,7 +1718,6 @@ img{
     align-items: stretch !important;
   }
 
-  /* left: room status fills full column */
   .chart-link{
     display: block !important;
     width: 100% !important;
@@ -1723,7 +1734,6 @@ img{
     flex-direction: column !important;
   }
 
-  /* right column full width */
   .tables-section{
     width: 100% !important;
     min-width: 0 !important;
@@ -1733,7 +1743,6 @@ img{
     align-content: start !important;
   }
 
-  /* LOW STOCK + RIGHT STACK must share full width equally */
   .mini-pair{
     width: 100% !important;
     min-width: 0 !important;
@@ -1770,22 +1779,17 @@ img{
     margin: 0 !important;
   }
 
-  /* make all table cards stretch exactly to their grid cell */
   .table-card{
     width: 100% !important;
     min-width: 0 !important;
     box-sizing: border-box !important;
   }
 
-  /* ---------------- SALES CARD GRAPH FIT ---------------- */
-
-  /* sales card same width as column */
   .tables-section > .table-card:first-child{
     width: 100% !important;
     min-width: 0 !important;
   }
 
-  /* target the inline chart wrapper in Dashboard.jsx */
   .tables-section > .table-card:first-child > div:last-child{
     width: 100% !important;
     height: 220px !important;
@@ -1794,7 +1798,6 @@ img{
     overflow: hidden !important;
   }
 
-  /* canvas must fully fit the wrapper */
   #salesLineChart{
     width: 100% !important;
     height: 100% !important;
@@ -1802,7 +1805,6 @@ img{
   }
 }
 
-/* tablet/mobile keep stacking clean */
 @media (max-width: 1023px){
   .dashboard-main{
     display: grid !important;
@@ -1846,11 +1848,6 @@ img{
 
 /* =========================================================
    DASHBOARD FINAL CLEAN FIX
-   - no duplicate overrides
-   - Low Stock / Damages scroll inside
-   - Right column same overall height as Room Status
-   - Total Revenue bottom aligned
-   - Sales graph fits card
    ========================================================= */
 
 .dashboard-page,
@@ -1880,7 +1877,6 @@ img{
 
 @media (min-width: 1024px){
 
-  /* main 2-column dashboard */
   .dashboard-main{
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -1888,7 +1884,6 @@ img{
     align-items: stretch;
   }
 
-  /* left side */
   .chart-link{
     display: block;
     width: 100%;
@@ -1912,7 +1907,6 @@ img{
     overflow-y: auto;
   }
 
-  /* right side should match room-status card height */
   .tables-section{
     display: grid;
     grid-template-rows: auto 1fr;
@@ -1923,13 +1917,11 @@ img{
     align-content: stretch;
   }
 
-  /* sales card on top */
   .tables-section > .table-card:first-child{
     width: 100%;
     min-width: 0;
   }
 
-  /* low stock + right stack */
   .mini-pair{
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -1971,7 +1963,6 @@ img{
     margin: 0;
   }
 
-  /* scroll only inside low stock and damages */
   .mini-pair .table-scroll{
     flex: 1 1 auto;
     min-height: 0;
@@ -1979,22 +1970,18 @@ img{
     overflow-x: hidden;
   }
 
-  /* equal visible body heights for low stock and damages */
   .mini-pair .table-card h3{
     flex: 0 0 auto;
   }
 
-  /* low stock card */
   .mini-pair > .card-link > .table-card .table-scroll{
     max-height: 280px;
   }
 
-  /* damages card */
   .right-stack > .table-card:first-child .table-scroll{
     max-height: 280px;
   }
 
-  /* total revenue card stays bottom and aligned */
   .revenue-card{
     min-height: 0;
     height: 100%;
