@@ -1,4 +1,3 @@
-//src/components/EmployeeDamageModal.jsx
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../lib/api";
 import "./EmployeeDamageModal.css";
@@ -8,30 +7,31 @@ export default function EmployeeDamageModal({
   onClose,
   user,
   damageRows = [],
-  items = [],          // ✅ inventory list from /inventory
-  locked = false,      // optional lock if you want (can be false always)
-  onAdded,             // ✅ callback: refresh damage rows + inventory
+  items = [],
+  locked = false,
+  onAdded,
 }) {
-  // ERD: damage_status(status_id, status_name)
   const damageStatuses = useMemo(
     () => [
-      { status_id: 1, status_name: "Reported" },
-      { status_id: 2, status_name: "Under Review" },
-      { status_id: 3, status_name: "Resolved" },
-      { status_id: 4, status_name: "Charged" },
+      { damage_status_id: 1, status_name: "Reported" },
+      { damage_status_id: 2, status_name: "Under Review" },
+      { damage_status_id: 3, status_name: "Resolved" },
+      { damage_status_id: 4, status_name: "Charged" },
     ],
     []
   );
 
-  function statusName(status_id) {
-    return damageStatuses.find((s) => s.status_id === Number(status_id))?.status_name ?? "—";
+  function statusName(damage_status_id) {
+    return (
+      damageStatuses.find((s) => s.damage_status_id === Number(damage_status_id))?.status_name ??
+      "—"
+    );
   }
 
   const totalDamages = useMemo(() => {
-    return (damageRows || []).reduce((sum, r) => sum + Number(r.cost_to_hotel || r.cost || 0), 0);
+    return (damageRows || []).reduce((sum, r) => sum + Number(r.cost || 0), 0);
   }, [damageRows]);
 
-  // ✅ Add form state
   const [invId, setInvId] = useState("");
   const [statusId, setStatusId] = useState("1");
   const [cost, setCost] = useState("");
@@ -42,9 +42,7 @@ export default function EmployeeDamageModal({
     () => items.find((x) => String(x.inv_id) === String(invId)),
     [items, invId]
   );
-  const stock = Number(selected?.quantity || 0);
 
-  // Reset on open
   useEffect(() => {
     if (!open) return;
     setInvId("");
@@ -54,7 +52,6 @@ export default function EmployeeDamageModal({
     setSubmitting(false);
   }, [open, user?.user_id]);
 
-  // ESC close
   useEffect(() => {
     function onKeyDown(e) {
       if (e.key === "Escape" && open) onClose?.();
@@ -63,7 +60,6 @@ export default function EmployeeDamageModal({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
-  // ✅ LOCK BG scroll
   useEffect(() => {
     if (!open) return;
     const previousOverflow = document.body.style.overflow;
@@ -83,22 +79,22 @@ export default function EmployeeDamageModal({
     if (!invId) return setErr("Please select an inventory item.");
 
     const costNum = Number(cost || 0);
-    if (!Number.isFinite(costNum) || costNum <= 0) return setErr("Cost must be greater than 0.");
+    if (!Number.isFinite(costNum) || costNum <= 0) {
+      return setErr("Cost must be greater than 0.");
+    }
 
     setSubmitting(true);
     try {
-      // ✅ Change endpoint if lahi inyong route
-await apiFetch("/employee-damage", {
-  method: "POST",
-  body: JSON.stringify({
-    user_id: Number(user.user_id),
-    inventory_id: Number(invId),
-    status_id: Number(statusId),
-    cost: costNum,
-  }),
-});
+      await apiFetch("/employee-damage", {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: Number(user.user_id),
+          inv_id: Number(invId),
+          damage_status_id: Number(statusId),
+          cost: costNum,
+        }),
+      });
 
-      // reset
       setInvId("");
       setStatusId("1");
       setCost("");
@@ -142,7 +138,6 @@ await apiFetch("/employee-damage", {
           </div>
         </div>
 
-        {/* ✅ ADD DAMAGE FORM */}
         <div className="edm-add">
           <div className="edm-add-title">Add Damage</div>
           <div className="edm-add-sub">Please select an inventory item.</div>
@@ -156,19 +151,18 @@ await apiFetch("/employee-damage", {
               <select value={invId} onChange={(e) => setInvId(e.target.value)} disabled={locked}>
                 <option value="">Select inventory</option>
                 {items.map((it) => (
-<option key={it.inv_id} value={it.inv_id}>
-  {it.name} (stock: {it.quantity})
-</option>
+                  <option key={it.inv_id} value={it.inv_id}>
+                    {it.item_name} (stock: {it.quantity})
+                  </option>
                 ))}
               </select>
-
             </label>
 
             <label className="edm-field">
               <span>Status</span>
               <select value={statusId} onChange={(e) => setStatusId(e.target.value)} disabled={locked}>
                 {damageStatuses.map((s) => (
-                  <option key={s.status_id} value={s.status_id}>
+                  <option key={s.damage_status_id} value={s.damage_status_id}>
                     {s.status_name}
                   </option>
                 ))}
@@ -219,15 +213,15 @@ await apiFetch("/employee-damage", {
                   <tr key={r.edam_id}>
                     <td className="edm-mono">ED{r.edam_id}</td>
                     <td title={r.inventory_name || r.item_name || ""}>
-                      {r.inventory_name ?? r.item_name ?? `INV-${r.inv_id ?? r.inventory_id}`}
+                      {r.inventory_name ?? r.item_name ?? `INV-${r.inv_id}`}
                     </td>
                     <td className="edm-mono">{r.date_reported}</td>
                     <td>
-                      <span className={`edm-status s-${String(r.damage_status_id ?? r.status_id)}`}>
-                        {statusName(r.damage_status_id ?? r.status_id)}
+                      <span className={`edm-status s-${String(r.damage_status_id)}`}>
+                        {statusName(r.damage_status_id)}
                       </span>
                     </td>
-                    <td>₱{Number(r.cost_to_hotel ?? r.cost ?? 0).toLocaleString()}</td>
+                    <td>₱{Number(r.cost ?? 0).toLocaleString()}</td>
                   </tr>
                 ))
               )}

@@ -1,4 +1,3 @@
-//src/components/SalesModal.jsx
 import { useMemo, useState, useEffect } from "react";
 import "./SalesModal.css";
 
@@ -34,8 +33,6 @@ export default function SalesModal({
 
   const stock = Number(selected?.quantity || 0);
 
-  // Inventory endpoint nimo walay current_cost/unit_price sa response
-  // so safe lang ta: default 0, unless naa kay field like unit_price/cost
   useEffect(() => {
     if (!selected) return;
     const p = Number(
@@ -70,8 +67,7 @@ export default function SalesModal({
       {
         id: crypto.randomUUID(),
         inv_id: selected.inv_id,
-        // FIX: inventory route returns `name`, not `item_name`
-        name: selected.name,
+        name: selected.item_name,
         qty: safeQty,
         unitPrice: Number(unitPrice || 0),
       },
@@ -129,7 +125,6 @@ export default function SalesModal({
         </div>
 
         <div className={`li-body ${locked ? "locked" : ""}`}>
-          {/* LEFT */}
           <div className="li-left">
             <label className="li-field">
               <span>Item</span>
@@ -137,8 +132,7 @@ export default function SalesModal({
                 <option value="">Select item</option>
                 {items.map((it) => (
                   <option key={it.inv_id} value={it.inv_id}>
-                    {/* FIX: show correct item name */}
-                    {it.name} (stock: {it.quantity})
+                    {it.item_name} (stock: {it.quantity})
                   </option>
                 ))}
               </select>
@@ -210,7 +204,6 @@ export default function SalesModal({
             </button>
           </div>
 
-          {/* RIGHT */}
           <div className="li-right">
             <div className="li-card">
               <div className="li-card-top">

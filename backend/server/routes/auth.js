@@ -20,9 +20,11 @@ router.post("/signup", async (req, res) => {
   if (!username || !password || !confirmPassword) {
     return res.status(400).json({ message: "Username and password are required" });
   }
+
   if (password !== confirmPassword) {
     return res.status(400).json({ message: "Passwords do not match" });
   }
+
   if (!role_id || !gender_id || !shift_start || !shift_end) {
     return res.status(400).json({ message: "Role, gender, and shift are required" });
   }
@@ -40,8 +42,9 @@ router.post("/signup", async (req, res) => {
     const password_hash = await bcrypt.hash(password, 10);
 
     await pool.query(
-      "INSERT INTO users (username, password_hash, role_id, gender_id, shift_start, shift_end) VALUES (?, ?, ?, ?, ?, ?)",
-      [username.trim(), password_hash, role_id, gender_id, shift_start, shift_end]
+      `INSERT INTO users (username, password_hash, role_id, gender_id, shift_start, shift_end)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [username.trim(), password_hash, Number(role_id), Number(gender_id), shift_start, shift_end]
     );
 
     return res.status(201).json({ message: "Signup success" });
@@ -66,7 +69,9 @@ router.post("/login", async (req, res) => {
 
   try {
     const [rows] = await pool.query(
-      "SELECT user_id, username, password_hash, role_id, gender_id, shift_start, shift_end FROM users WHERE username = ?",
+      `SELECT user_id, username, password_hash, role_id, gender_id, shift_start, shift_end
+       FROM users
+       WHERE username = ?`,
       [username.trim()]
     );
 

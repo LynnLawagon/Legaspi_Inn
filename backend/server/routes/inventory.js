@@ -1,24 +1,14 @@
-//backend/server/routes/inventory.js
 const express = require("express");
 const pool = require("../db");
 const router = express.Router();
 
-/**
- * RULE:
- * qty = 0 => Out of Stock
- * qty < 50 => Low Stock
- * qty >= 50 => Available
- */
-
 function getThreshold(req) {
-  // default threshold = 50
   const t = Number(req.query.threshold ?? 50);
   return Number.isFinite(t) && t >= 1 ? t : 50;
 }
 
 /**
  * GET /api/inventory?q=&threshold=50
- * List inventory with computed status (invstat_name)
  */
 router.get("/", async (req, res) => {
   try {
@@ -28,35 +18,35 @@ router.get("/", async (req, res) => {
     let sql = `
       SELECT
         i.inv_id,
-        i.name,
+        i.item_name,
         i.quantity,
         i.category_id,
         i.inv_type_id,
-        i.invstat_id,
-
+        i.inv_status_id,
         c.category_name,
         t.type_name,
-
+        s.status_name,
         CASE
-          WHEN COALESCE(i.quantity,0) = 0 THEN 'Out of Stock'
-          WHEN COALESCE(i.quantity,0) < ? THEN 'Low Stock'
+          WHEN COALESCE(i.quantity, 0) = 0 THEN 'Out of Stock'
+          WHEN COALESCE(i.quantity, 0) < ? THEN 'Low Stock'
           ELSE 'Available'
-        END AS invstat_name
-
+        END AS computed_status
       FROM inventory i
       LEFT JOIN inventory_category c ON c.category_id = i.category_id
       LEFT JOIN inventory_type t ON t.inv_type_id = i.inv_type_id
+      LEFT JOIN inventory_status s ON s.inv_status_id = i.inv_status_id
     `;
 
     const params = [threshold];
 
     if (q) {
       sql += `
-        WHERE i.name LIKE ?
+        WHERE i.item_name LIKE ?
            OR c.category_name LIKE ?
            OR t.type_name LIKE ?
+           OR s.status_name LIKE ?
       `;
-      params.push(`%${q}%`, `%${q}%`, `%${q}%`);
+      params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
     }
 
     sql += ` ORDER BY i.inv_id DESC`;
@@ -81,7 +71,7 @@ router.get("/lookups", async (req, res) => {
       `SELECT inv_type_id, type_name FROM inventory_type ORDER BY type_name ASC`
     );
     const [statuses] = await pool.query(
-      `SELECT invstat_id, invstat_name FROM inventory_status ORDER BY invstat_name ASC`
+      `SELECT inv_status_id, status_name FROM inventory_status ORDER BY status_name ASC`
     );
 
     res.json({
@@ -97,7 +87,6 @@ router.get("/lookups", async (req, res) => {
 
 /**
  * GET /api/inventory/low-stock?limit=50&threshold=50
- * Low stock = 1..(threshold-1)
  */
 router.get("/low-stock", async (req, res) => {
   try {
@@ -108,12 +97,12 @@ router.get("/low-stock", async (req, res) => {
       `
       SELECT
         i.inv_id,
-        i.name,
+        i.item_name,
         i.quantity,
         c.category_name
       FROM inventory i
       LEFT JOIN inventory_category c ON c.category_id = i.category_id
-      WHERE COALESCE(i.quantity,0) BETWEEN 1 AND ?
+      WHERE COALESCE(i.quantity, 0) BETWEEN 1 AND ?
       ORDER BY i.quantity ASC, i.inv_id DESC
       LIMIT ?
       `,
@@ -137,19 +126,16 @@ router.get("/summary", async (req, res) => {
     const [totalItemsRow] = await pool.query(
       "SELECT COUNT(*) AS total FROM inventory"
     );
-
     const [availableRow] = await pool.query(
-      "SELECT COUNT(*) AS total FROM inventory WHERE COALESCE(quantity,0) >= ?",
+      "SELECT COUNT(*) AS total FROM inventory WHERE COALESCE(quantity, 0) >= ?",
       [threshold]
     );
-
     const [lowRow] = await pool.query(
-      "SELECT COUNT(*) AS total FROM inventory WHERE COALESCE(quantity,0) BETWEEN 1 AND ?",
+      "SELECT COUNT(*) AS total FROM inventory WHERE COALESCE(quantity, 0) BETWEEN 1 AND ?",
       [threshold - 1]
     );
-
     const [outRow] = await pool.query(
-      "SELECT COUNT(*) AS total FROM inventory WHERE COALESCE(quantity,0) = 0"
+      "SELECT COUNT(*) AS total FROM inventory WHERE COALESCE(quantity, 0) = 0"
     );
 
     res.json({
@@ -169,26 +155,26 @@ router.get("/summary", async (req, res) => {
  * POST /api/inventory
  */
 router.post("/", async (req, res) => {
-  const { name, category_id, inv_type_id, quantity, invstat_id } = req.body;
+  const { item_name, category_id, inv_type_id, quantity, inv_status_id } = req.body;
 
-  if (!name || !category_id || !inv_type_id || invstat_id == null) {
+  if (!item_name || !category_id || !inv_type_id || inv_status_id == null) {
     return res.status(400).json({
-      message: "name, category_id, inv_type_id, invstat_id are required",
+      message: "item_name, category_id, inv_type_id, inv_status_id are required",
     });
   }
 
   try {
     const [r] = await pool.query(
       `
-      INSERT INTO inventory (name, category_id, inv_type_id, quantity, invstat_id)
+      INSERT INTO inventory (item_name, category_id, inv_type_id, quantity, inv_status_id)
       VALUES (?, ?, ?, ?, ?)
       `,
       [
-        String(name).trim(),
+        String(item_name).trim(),
         Number(category_id),
         Number(inv_type_id),
         Number(quantity ?? 0),
-        Number(invstat_id),
+        Number(inv_status_id),
       ]
     );
 
@@ -203,21 +189,21 @@ router.post("/", async (req, res) => {
  * PUT /api/inventory/:id
  */
 router.put("/:id", async (req, res) => {
-  const { name, category_id, inv_type_id, quantity, invstat_id } = req.body;
+  const { item_name, category_id, inv_type_id, quantity, inv_status_id } = req.body;
 
   try {
     const [r] = await pool.query(
       `
       UPDATE inventory
-      SET name=?, category_id=?, inv_type_id=?, quantity=?, invstat_id=?
+      SET item_name=?, category_id=?, inv_type_id=?, quantity=?, inv_status_id=?
       WHERE inv_id=?
       `,
       [
-        String(name).trim(),
+        String(item_name).trim(),
         Number(category_id),
         Number(inv_type_id),
         Number(quantity ?? 0),
-        Number(invstat_id),
+        Number(inv_status_id),
         Number(req.params.id),
       ]
     );
@@ -236,6 +222,7 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const [r] = await pool.query(`DELETE FROM inventory WHERE inv_id=?`, [Number(req.params.id)]);
+
     if (r.affectedRows === 0) return res.status(404).json({ message: "Item not found" });
     res.json({ deleted: r.affectedRows });
   } catch (e) {

@@ -1,4 +1,3 @@
-//src/components/ReceiptModal.jsx
 import { useEffect, useMemo, useState } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
@@ -26,12 +25,21 @@ function splitToDisplayParts(dtLocal) {
 
 export default function ReceiptModal({ open, onClose, tx, processedBy = "" }) {
   const [items, setItems] = useState([]);
+  const [damages, setDamages] = useState([]);
 
   useEffect(() => {
     if (!open || !tx?.trans_id) return;
+
     apiFetch(`/purchased/by-transaction/${tx.trans_id}`)
-      .then(setItems)
+      .then((rows) => setItems(Array.isArray(rows) ? rows : []))
       .catch(() => setItems([]));
+
+    apiFetch(`/damages?limit=200`)
+      .then((rows) => {
+        const all = Array.isArray(rows) ? rows : [];
+        setDamages(all.filter((d) => Number(d.trans_id) === Number(tx.trans_id)));
+      })
+      .catch(() => setDamages([]));
   }, [open, tx?.trans_id]);
 
   const checkIn = splitToDisplayParts(tx?.checkin);
@@ -42,7 +50,10 @@ export default function ReceiptModal({ open, onClose, tx, processedBy = "" }) {
     () => items.reduce((s, it) => s + Number(it.quantity) * Number(it.unit_cost), 0),
     [items]
   );
-  const damageTotal = 0;
+  const damageTotal = useMemo(
+    () => damages.reduce((s, d) => s + Number(d.charge_amount || 0), 0),
+    [damages]
+  );
   const grandTotal = roomCharge + salesTotal + damageTotal;
 
   if (!open) return null;
@@ -130,10 +141,19 @@ export default function ReceiptModal({ open, onClose, tx, processedBy = "" }) {
             <div style={{ height: 14 }} />
 
             <div className="r-section">Damage Fees</div>
-            <div className="r-row">
-              <div className="r-item">None</div>
-              <div className="r-amt">{money(damageTotal)}</div>
-            </div>
+            {damages.length === 0 ? (
+              <div className="r-row">
+                <div className="r-item">None</div>
+                <div className="r-amt">{money(0)}</div>
+              </div>
+            ) : (
+              damages.map((d) => (
+                <div className="r-row" key={d.gdam_id}>
+                  <div className="r-item">{d.item_name}</div>
+                  <div className="r-amt">{money(d.charge_amount)}</div>
+                </div>
+              ))
+            )}
 
             <div className="r-divider" style={{ marginTop: 16 }} />
 

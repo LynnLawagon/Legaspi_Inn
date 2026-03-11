@@ -1,4 +1,3 @@
-// src/pages/Inventory.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "../lib/api";
 
@@ -49,12 +48,11 @@ export default function Inventory() {
     loadAll();
   }, []);
 
-  // backend returns: name, category_name, type_name, invstat_name
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return items;
     return items.filter((x) =>
-      `${x.name} ${x.category_name} ${x.type_name} ${x.invstat_name}`
+      `${x.item_name || ""} ${x.category_name || ""} ${x.type_name || ""} ${x.computed_status || x.status_name || ""}`
         .toLowerCase()
         .includes(s)
     );
@@ -86,8 +84,8 @@ export default function Inventory() {
   }, []);
 
   async function createItem() {
-    const name = window.prompt("Item Name:");
-    if (!name?.trim()) return;
+    const item_name = window.prompt("Item Name:");
+    if (!item_name?.trim()) return;
 
     const category_id = pickFromList(
       "Choose category_id:",
@@ -105,14 +103,14 @@ export default function Inventory() {
     );
     if (!inv_type_id) return;
 
-    const invstat_id = pickFromList(
-      "Choose invstat_id:",
+    const inv_status_id = pickFromList(
+      "Choose inv_status_id:",
       lookups.statuses,
-      "invstat_id",
-      "invstat_name",
-      lookups.statuses?.[0]?.invstat_id ? String(lookups.statuses[0].invstat_id) : "1"
+      "inv_status_id",
+      "status_name",
+      lookups.statuses?.[0]?.inv_status_id ? String(lookups.statuses[0].inv_status_id) : "1"
     );
-    if (!invstat_id) return;
+    if (!inv_status_id) return;
 
     const qtyStr = window.prompt("Quantity:", "0");
     if (qtyStr == null) return;
@@ -127,11 +125,11 @@ export default function Inventory() {
       await apiFetch("/inventory", {
         method: "POST",
         body: JSON.stringify({
-          name: name.trim(),
+          item_name: item_name.trim(),
           category_id: Number(category_id),
           inv_type_id: Number(inv_type_id),
           quantity,
-          invstat_id: Number(invstat_id),
+          inv_status_id: Number(inv_status_id),
         }),
       });
       await loadAll();
@@ -141,8 +139,8 @@ export default function Inventory() {
   }
 
   async function editItem(it) {
-    const name = window.prompt("Item Name:", it.name);
-    if (!name?.trim()) return;
+    const item_name = window.prompt("Item Name:", it.item_name);
+    if (!item_name?.trim()) return;
 
     const category_id = pickFromList(
       `Choose category_id (current: ${it.category_id}):`,
@@ -162,14 +160,14 @@ export default function Inventory() {
     );
     if (!inv_type_id) return;
 
-    const invstat_id = pickFromList(
-      `Choose invstat_id (current: ${it.invstat_id}):`,
+    const inv_status_id = pickFromList(
+      `Choose inv_status_id (current: ${it.inv_status_id}):`,
       lookups.statuses,
-      "invstat_id",
-      "invstat_name",
-      String(it.invstat_id ?? 1)
+      "inv_status_id",
+      "status_name",
+      String(it.inv_status_id ?? 1)
     );
-    if (!invstat_id) return;
+    if (!inv_status_id) return;
 
     const qtyStr = window.prompt("Quantity:", String(it.quantity));
     if (qtyStr == null) return;
@@ -184,11 +182,11 @@ export default function Inventory() {
       await apiFetch(`/inventory/${it.inv_id}`, {
         method: "PUT",
         body: JSON.stringify({
-          name: name.trim(),
+          item_name: item_name.trim(),
           category_id: Number(category_id),
           inv_type_id: Number(inv_type_id),
           quantity,
-          invstat_id: Number(invstat_id),
+          inv_status_id: Number(inv_status_id),
         }),
       });
       await loadAll();
@@ -198,7 +196,7 @@ export default function Inventory() {
   }
 
   async function deleteItem(it) {
-    if (!window.confirm(`Delete "${it.name}"?`)) return;
+    if (!window.confirm(`Delete "${it.item_name}"?`)) return;
 
     try {
       await apiFetch(`/inventory/${it.inv_id}`, { method: "DELETE" });
@@ -254,21 +252,21 @@ export default function Inventory() {
         </div>
       )}
 
-<header className="page-header">
-  <h1 className="page-title">Inventory</h1>
+      <header className="page-header">
+        <h1 className="page-title">Inventory</h1>
 
-  <div className="page-actions">
-    <div className="search-wrap">
-      <img src="/assets/images/search.png" alt="search" />
-      <input
-        type="text"
-        placeholder="Search item, category, type, status..."
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-      />
-    </div>
-  </div>
-</header>
+        <div className="page-actions">
+          <div className="search-wrap">
+            <img src="/assets/images/search.png" alt="search" />
+            <input
+              type="text"
+              placeholder="Search item, category, type, status..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+        </div>
+      </header>
 
       <section className="inv-card">
         <div className="inv-table-wrap">
@@ -296,11 +294,11 @@ export default function Inventory() {
               {!loading &&
                 filtered.map((it) => (
                   <tr key={it.inv_id}>
-                    <td>{it.name}</td>
+                    <td>{it.item_name}</td>
                     <td>{it.category_name}</td>
                     <td>{it.type_name}</td>
                     <td>{it.quantity}</td>
-                    <td>{it.invstat_name || "—"}</td>
+                    <td>{it.computed_status || it.status_name || "—"}</td>
                     <td className="td-action">
                       <button
                         onClick={(e) => openMenuForItem(e, it)}

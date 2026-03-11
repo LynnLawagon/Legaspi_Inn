@@ -1,4 +1,3 @@
-// src/pages/Dashboard.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import Chart from "chart.js/auto";
 import { apiFetch } from "../lib/api";
@@ -409,7 +408,7 @@ export default function Dashboard() {
                       ) : (
                         inv.lowStockItems.map((it) => (
                           <tr key={it.inv_id}>
-                            <td>{it.name}</td>
+                            <td>{it.item_name}</td>
                             <td>{it.quantity}</td>
                             <td>{it.category_name}</td>
                           </tr>

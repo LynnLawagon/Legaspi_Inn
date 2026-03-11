@@ -1,10 +1,8 @@
-// routes/purchased.js
 const express = require("express");
 const pool = require("../db");
 const router = express.Router();
 
 /**
- * Get purchased items by transaction
  * GET /api/purchased/by-transaction/:transId
  */
 router.get("/by-transaction/:transId", async (req, res) => {
@@ -16,7 +14,7 @@ router.get("/by-transaction/:transId", async (req, res) => {
       SELECT
         pd.pd_id,
         pd.inv_id,
-        i.name AS item_name,
+        i.item_name AS item_name,
         pd.quantity,
         pd.unit_cost
       FROM purchased p
@@ -36,9 +34,7 @@ router.get("/by-transaction/:transId", async (req, res) => {
 });
 
 /**
- * Add purchased item
  * POST /api/purchased
- * body: { trans_id, user_id, inv_id, quantity, unit_cost }
  */
 router.post("/", async (req, res) => {
   const { trans_id, user_id, inv_id, quantity, unit_cost } = req.body;
@@ -58,10 +54,10 @@ router.post("/", async (req, res) => {
   }
 
   const conn = await pool.getConnection();
+
   try {
     await conn.beginTransaction();
 
-    // 1) Ensure purchased header exists for this transaction
     const [[existing]] = await conn.query(
       `SELECT purchased_id FROM purchased WHERE trans_id = ? LIMIT 1`,
       [transId]
@@ -78,7 +74,6 @@ router.post("/", async (req, res) => {
       purchasedId = ins.insertId;
     }
 
-    // 2) Lock inventory row
     const [[inv]] = await conn.query(
       `SELECT inv_id, quantity FROM inventory WHERE inv_id = ? FOR UPDATE`,
       [invId]
@@ -87,14 +82,12 @@ router.post("/", async (req, res) => {
     if (!inv) throw new Error("Inventory item not found");
     if (Number(inv.quantity || 0) < qty) throw new Error("Not enough stock");
 
-    // 3) Insert purchased detail
     await conn.query(
       `INSERT INTO purchased_details (purchased_id, inv_id, quantity, unit_cost)
        VALUES (?, ?, ?, ?)`,
       [purchasedId, invId, qty, unitCost]
     );
 
-    // 4) Deduct stock
     await conn.query(
       `UPDATE inventory SET quantity = quantity - ? WHERE inv_id = ?`,
       [qty, invId]

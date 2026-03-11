@@ -1,4 +1,3 @@
-// backend/server/routes/transactions.js
 const express = require("express");
 const pool = require("../db");
 
@@ -6,15 +5,13 @@ const router = express.Router();
 
 /**
  * GET /api/transactions/lookups
- * Guests, Users, Available Rooms
- * (NOTE: inventory lookups optional; if you use /api/inventory for items, you can remove inventory here)
  */
 router.get("/lookups", async (req, res) => {
   try {
     const [guests] = await pool.query(`
-      SELECT guest_id, name AS guest_name
+      SELECT guest_id, guest_name
       FROM guests
-      ORDER BY name
+      ORDER BY guest_name
     `);
 
     const [users] = await pool.query(`
@@ -32,21 +29,18 @@ router.get("/lookups", async (req, res) => {
         rs.status_name
       FROM rooms r
       LEFT JOIN room_type rt ON rt.room_type_id = r.room_type_id
-      LEFT JOIN room_status rs ON rs.status_id = r.status_id
+      LEFT JOIN room_status rs ON rs.room_status_id = r.room_status_id
       WHERE LOWER(rs.status_name) = 'available'
-      ORDER BY CAST(SUBSTRING(r.room_number, 2) AS UNSIGNED), r.room_id
+      ORDER BY r.room_number, r.room_id
     `);
 
-    // Keep this only if you really use it somewhere
     const [inventory] = await pool.query(`
-      SELECT inv_id, name, quantity
+      SELECT inv_id, item_name, quantity
       FROM inventory
       WHERE COALESCE(quantity, 0) > 0
-      ORDER BY name
+      ORDER BY item_name
     `);
 
-    // IMPORTANT: return inventory fields consistent with frontend
-    // If frontend expects `name`, return `name` (NOT item_name)
     res.json({
       guests: Array.isArray(guests) ? guests : [],
       users: Array.isArray(users) ? users : [],
@@ -64,7 +58,6 @@ router.get("/lookups", async (req, res) => {
 
 /**
  * GET /api/transactions
- * List all transactions (hide soft-deleted)
  */
 router.get("/", async (req, res) => {
   try {
@@ -72,7 +65,7 @@ router.get("/", async (req, res) => {
       SELECT
         t.trans_id,
         t.guest_id,
-        g.name AS guest_name,
+        g.guest_name,
         t.user_id,
         u.username,
         t.room_id,
@@ -81,12 +74,13 @@ router.get("/", async (req, res) => {
         t.checkout,
         t.actual_rate_charged,
         t.date_created,
-        t.trans_status_id
+        t.trans_status_id,
+        ts.status_name AS transaction_status
       FROM transactions t
       LEFT JOIN guests g ON g.guest_id = t.guest_id
       LEFT JOIN users u ON u.user_id = t.user_id
       LEFT JOIN rooms r ON r.room_id = t.room_id
-      WHERE COALESCE(t.is_deleted, 0) = 0
+      LEFT JOIN transaction_status ts ON ts.trans_status_id = t.trans_status_id
       ORDER BY t.trans_id DESC
     `);
 
@@ -102,10 +96,17 @@ router.get("/", async (req, res) => {
 
 /**
  * POST /api/transactions
- * Create transaction
  */
 router.post("/", async (req, res) => {
-  const { guest_id, user_id, room_id, checkin, checkout, actual_rate_charged, trans_status_id } = req.body;
+  const {
+    guest_id,
+    user_id,
+    room_id,
+    checkin,
+    checkout,
+    actual_rate_charged,
+    trans_status_id,
+  } = req.body;
 
   if (!guest_id || !user_id || !room_id) {
     return res.status(400).json({ message: "guest_id, user_id, room_id are required" });
@@ -115,8 +116,8 @@ router.post("/", async (req, res) => {
     const [r] = await pool.query(
       `
       INSERT INTO transactions
-        (guest_id, user_id, room_id, trans_status_id, checkin, checkout, actual_rate_charged, date_created, is_deleted)
-      VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), 0)
+        (guest_id, user_id, room_id, trans_status_id, checkin, checkout, actual_rate_charged, date_created)
+      VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
       `,
       [
         Number(guest_id),
@@ -141,10 +142,17 @@ router.post("/", async (req, res) => {
 
 /**
  * PUT /api/transactions/:id
- * Update transaction (only if not deleted)
  */
 router.put("/:id", async (req, res) => {
-  const { guest_id, user_id, room_id, checkin, checkout, actual_rate_charged, trans_status_id } = req.body;
+  const {
+    guest_id,
+    user_id,
+    room_id,
+    checkin,
+    checkout,
+    actual_rate_charged,
+    trans_status_id,
+  } = req.body;
 
   try {
     const id = Number(req.params.id);
@@ -153,7 +161,7 @@ router.put("/:id", async (req, res) => {
       `
       UPDATE transactions
       SET guest_id=?, user_id=?, room_id=?, trans_status_id=?, checkin=?, checkout=?, actual_rate_charged=?
-      WHERE trans_id=? AND COALESCE(is_deleted,0)=0
+      WHERE trans_id=?
       `,
       [
         Number(guest_id),
@@ -167,7 +175,10 @@ router.put("/:id", async (req, res) => {
       ]
     );
 
-    if (r.affectedRows === 0) return res.status(404).json({ message: "Transaction not found" });
+    if (r.affectedRows === 0) {
+      return res.status(404).json({ message: "Transaction not found" });
+    }
+
     res.json({ updated: r.affectedRows });
   } catch (e) {
     console.error("transactions update error:", e);
@@ -180,15 +191,16 @@ router.put("/:id", async (req, res) => {
 
 /**
  * DELETE /api/transactions/:id
- * Soft delete transaction
  */
 router.delete("/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
+    const [r] = await pool.query(`DELETE FROM transactions WHERE trans_id=?`, [id]);
 
-    const [r] = await pool.query(`UPDATE transactions SET is_deleted=1 WHERE trans_id=?`, [id]);
+    if (r.affectedRows === 0) {
+      return res.status(404).json({ message: "Transaction not found" });
+    }
 
-    if (r.affectedRows === 0) return res.status(404).json({ message: "Transaction not found" });
     res.json({ deleted: r.affectedRows });
   } catch (e) {
     console.error("transactions delete error:", e);

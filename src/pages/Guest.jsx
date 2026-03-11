@@ -1,4 +1,3 @@
-// src/pages/Guest.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "../lib/api";
 
@@ -29,12 +28,13 @@ export default function Guest() {
     loadAll();
   }, []);
 
-  // backend returns: name, contact, gender_name, dob
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return guests;
     return guests.filter((x) =>
-      `${x.name} ${x.contact} ${x.gender_name} ${x.dob}`.toLowerCase().includes(s)
+      `${x.guest_name || ""} ${x.contact || ""} ${x.gender_name || ""} ${x.dob || ""}`
+        .toLowerCase()
+        .includes(s)
     );
   }, [guests, q]);
 
@@ -64,8 +64,8 @@ export default function Guest() {
   }, []);
 
   async function createGuest() {
-    const name = window.prompt("Guest Name:");
-    if (!name?.trim()) return;
+    const guest_name = window.prompt("Guest Name:");
+    if (!guest_name?.trim()) return;
 
     const contact = window.prompt("Contact (e.g. 09xx...):");
     if (!contact?.trim()) return;
@@ -76,12 +76,16 @@ export default function Guest() {
     const dob = window.prompt("Date of Birth (YYYY-MM-DD):", "2000-01-01");
     if (!dob) return;
 
+    const ageStr = window.prompt("Age:", "");
+    const age = ageStr?.trim() ? Number(ageStr) : null;
+
     try {
       await apiFetch("/guests", {
         method: "POST",
         body: JSON.stringify({
-          name: name.trim(),
+          guest_name: guest_name.trim(),
           contact: contact.trim(),
+          age,
           gender_id: Number(gender_id),
           dob,
         }),
@@ -93,8 +97,8 @@ export default function Guest() {
   }
 
   async function editGuest(g) {
-    const name = window.prompt("Guest Name:", g.name);
-    if (!name?.trim()) return;
+    const guest_name = window.prompt("Guest Name:", g.guest_name);
+    if (!guest_name?.trim()) return;
 
     const contact = window.prompt("Contact:", g.contact);
     if (!contact?.trim()) return;
@@ -105,12 +109,16 @@ export default function Guest() {
     const dob = window.prompt("Date of Birth (YYYY-MM-DD):", g.dob);
     if (!dob) return;
 
+    const ageStr = window.prompt("Age:", g.age ?? "");
+    const age = ageStr?.trim() ? Number(ageStr) : null;
+
     try {
       await apiFetch(`/guests/${g.guest_id}`, {
         method: "PUT",
         body: JSON.stringify({
-          name: name.trim(),
+          guest_name: guest_name.trim(),
           contact: contact.trim(),
+          age,
           gender_id: Number(gender_id),
           dob,
         }),
@@ -122,7 +130,7 @@ export default function Guest() {
   }
 
   async function deleteGuest(g) {
-    if (!window.confirm(`Delete "${g.name}"?`)) return;
+    if (!window.confirm(`Delete "${g.guest_name}"?`)) return;
 
     try {
       await apiFetch(`/guests/${g.guest_id}`, { method: "DELETE" });
@@ -197,21 +205,21 @@ export default function Guest() {
         </div>
       )}
 
-<header className="page-header">
-  <h1 className="page-title">Guest</h1>
+      <header className="page-header">
+        <h1 className="page-title">Guest</h1>
 
-  <div className="page-actions">
-    <div className="search-wrap">
-      <img src="/assets/images/search.png" alt="search" />
-      <input
-        type="text"
-        placeholder="Search guest..."
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-      />
-    </div>
-  </div>
-</header>
+        <div className="page-actions">
+          <div className="search-wrap">
+            <img src="/assets/images/search.png" alt="search" />
+            <input
+              type="text"
+              placeholder="Search guest..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+        </div>
+      </header>
 
       <section className="g-card">
         <div className="g-table-wrap">
@@ -238,7 +246,7 @@ export default function Guest() {
               {!loading &&
                 filtered.map((g) => (
                   <tr key={g.guest_id}>
-                    <td>{g.name}</td>
+                    <td>{g.guest_name}</td>
                     <td>{g.contact}</td>
                     <td>{g.gender_name}</td>
                     <td>{g.dob}</td>

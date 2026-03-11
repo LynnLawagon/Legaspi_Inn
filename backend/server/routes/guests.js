@@ -4,7 +4,6 @@ const router = express.Router();
 
 /**
  * GET /api/guests?q=
- * list guests with gender_name
  */
 router.get("/", async (req, res) => {
   try {
@@ -13,8 +12,9 @@ router.get("/", async (req, res) => {
     let sql = `
       SELECT
         g.guest_id,
-        g.name,
+        g.guest_name,
         g.contact,
+        g.age,
         g.gender_id,
         gn.gender_name,
         DATE_FORMAT(g.dob, '%Y-%m-%d') AS dob
@@ -23,14 +23,16 @@ router.get("/", async (req, res) => {
     `;
 
     const params = [];
+
     if (q) {
       sql += `
-        WHERE g.name LIKE ?
+        WHERE g.guest_name LIKE ?
            OR g.contact LIKE ?
            OR gn.gender_name LIKE ?
            OR DATE_FORMAT(g.dob, '%Y-%m-%d') LIKE ?
+           OR CAST(g.age AS CHAR) LIKE ?
       `;
-      params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
+      params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
     }
 
     sql += ` ORDER BY g.guest_id DESC`;
@@ -45,7 +47,6 @@ router.get("/", async (req, res) => {
 
 /**
  * GET /api/guests/lookups
- * genders
  */
 router.get("/lookups", async (req, res) => {
   try {
@@ -62,19 +63,24 @@ router.get("/lookups", async (req, res) => {
 
 /**
  * POST /api/guests
- * body: { name, contact, gender_id, dob }
  */
 router.post("/", async (req, res) => {
-  const { name, contact, gender_id, dob } = req.body;
+  const { guest_name, contact, age, gender_id, dob } = req.body;
 
-  if (!name || !contact || !gender_id || !dob) {
-    return res.status(400).json({ message: "name, contact, gender_id, dob are required" });
+  if (!guest_name || !contact || !gender_id || !dob) {
+    return res.status(400).json({ message: "guest_name, contact, gender_id, dob are required" });
   }
 
   try {
     const [r] = await pool.query(
-      `INSERT INTO guests (name, contact, gender_id, dob) VALUES (?, ?, ?, ?)`,
-      [String(name).trim(), String(contact).trim(), Number(gender_id), dob]
+      `INSERT INTO guests (guest_name, contact, age, gender_id, dob) VALUES (?, ?, ?, ?, ?)`,
+      [
+        String(guest_name).trim(),
+        String(contact).trim(),
+        age == null || age === "" ? null : Number(age),
+        Number(gender_id),
+        dob,
+      ]
     );
 
     res.status(201).json({ guest_id: r.insertId });
@@ -86,15 +92,21 @@ router.post("/", async (req, res) => {
 
 /**
  * PUT /api/guests/:id
- * body: { name, contact, gender_id, dob }
  */
 router.put("/:id", async (req, res) => {
-  const { name, contact, gender_id, dob } = req.body;
+  const { guest_name, contact, age, gender_id, dob } = req.body;
 
   try {
     const [r] = await pool.query(
-      `UPDATE guests SET name=?, contact=?, gender_id=?, dob=? WHERE guest_id=?`,
-      [String(name).trim(), String(contact).trim(), Number(gender_id), dob, Number(req.params.id)]
+      `UPDATE guests SET guest_name=?, contact=?, age=?, gender_id=?, dob=? WHERE guest_id=?`,
+      [
+        String(guest_name).trim(),
+        String(contact).trim(),
+        age == null || age === "" ? null : Number(age),
+        Number(gender_id),
+        dob,
+        Number(req.params.id),
+      ]
     );
 
     if (r.affectedRows === 0) return res.status(404).json({ message: "Guest not found" });
@@ -111,6 +123,7 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const [r] = await pool.query(`DELETE FROM guests WHERE guest_id=?`, [Number(req.params.id)]);
+
     if (r.affectedRows === 0) return res.status(404).json({ message: "Guest not found" });
     res.json({ deleted: r.affectedRows });
   } catch (e) {

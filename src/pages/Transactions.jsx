@@ -1,4 +1,3 @@
-// src/pages/Transactions.jsx
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../lib/api";
 import SalesModal from "../components/SalesModal";
@@ -40,27 +39,23 @@ const emptyForm = {
 
 export default function Transactions() {
   const [transactions, setTransactions] = useState([]);
-  const [lookups, setLookups] = useState({ guests: [], users: [], rooms: [] });
+  const [lookups, setLookups] = useState({ guests: [], users: [], rooms: [], inventory: [] });
   const [inventoryItems, setInventoryItems] = useState([]);
 
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // New/Edit Transaction modal
   const [txOpen, setTxOpen] = useState(false);
   const [txForm, setTxForm] = useState(emptyForm);
   const [txSubmitting, setTxSubmitting] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
-  // Receipt modal
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptTarget, setReceiptTarget] = useState(null);
 
-  // Sales modal
   const [salesOpen, setSalesOpen] = useState(false);
   const [salesTarget, setSalesTarget] = useState({ transId: "", guest: "", userId: null, room: "" });
 
-  // Guest Damage modal
   const [damageOpen, setDamageOpen] = useState(false);
   const [damageTarget, setDamageTarget] = useState({ transId: "", guest: "", room: "", userId: null });
 
@@ -77,6 +72,7 @@ export default function Transactions() {
         guests: Array.isArray(lookupData.guests) ? lookupData.guests : [],
         users: Array.isArray(lookupData.users) ? lookupData.users : [],
         rooms: Array.isArray(lookupData.rooms) ? lookupData.rooms : [],
+        inventory: Array.isArray(lookupData.inventory) ? lookupData.inventory : [],
       });
     } catch (e) {
       console.error("Transactions load failed:", e);
@@ -99,7 +95,6 @@ export default function Transactions() {
   useEffect(() => {
     loadAll();
     loadInventory();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = useMemo(() => {
@@ -237,23 +232,44 @@ export default function Transactions() {
     }));
   }
 
+  async function handleSaveDamage(payload) {
+    try {
+      await apiFetch("/damages", {
+        method: "POST",
+        body: JSON.stringify({
+          trans_id: Number(payload.trans_id),
+          inv_id: Number(payload.inv_id),
+          charge_amount: Number(payload.charge_amount || 0),
+          damage_status_id: 1,
+          date_reported: new Date().toISOString().slice(0, 19).replace("T", " "),
+        }),
+      });
+
+      closeDamageModal();
+      await loadInventory();
+      await loadAll();
+    } catch (e) {
+      alert(e.message || "Failed to save damage");
+    }
+  }
+
   return (
     <>
-<header className="page-header">
-  <h1 className="page-title">Transactions</h1>
+      <header className="page-header">
+        <h1 className="page-title">Transactions</h1>
 
-  <div className="page-actions">
-    <div className="search-wrap">
-      <img src="/assets/images/search.png" alt="search" />
-      <input
-        type="text"
-        placeholder="Search by Guest Name / Room"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-    </div>
-  </div>
-</header>
+        <div className="page-actions">
+          <div className="search-wrap">
+            <img src="/assets/images/search.png" alt="search" />
+            <input
+              type="text"
+              placeholder="Search by Guest Name / Room"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+      </header>
 
       <section className="tx-card">
         <div className="tx-table-wrap">
@@ -268,7 +284,7 @@ export default function Transactions() {
               <col style={{ width: "160px" }} />
               <col style={{ width: "90px" }} />
               <col style={{ width: "160px" }} />
-              <col style={{ width: "92px" }} /> {/* for 2 icons */}
+              <col style={{ width: "92px" }} />
               <col style={{ width: "130px" }} />
             </colgroup>
 
@@ -352,7 +368,6 @@ export default function Transactions() {
                         <span className="muted">{dc.time}</span>
                       </td>
 
-                      {/* SALES + DAMAGE icons */}
                       <td className="col-action">
                         <button
                           className="cart-btn"
@@ -374,7 +389,6 @@ export default function Transactions() {
                         </button>
                       </td>
 
-                      {/* Edit/Delete not locked */}
                       <td className="td-center">
                         <button className="btn small" type="button" onClick={() => openTxModal(t)}>
                           Edit
@@ -401,7 +415,6 @@ export default function Transactions() {
         New Transaction
       </button>
 
-      {/* NEW/EDIT TRANSACTION MODAL */}
       <div
         className={`tx-overlay ${txOpen ? "show" : ""}`}
         aria-hidden={txOpen ? "false" : "true"}
@@ -545,12 +558,7 @@ export default function Transactions() {
         guestName={damageTarget.guest}
         roomNumber={damageTarget.room}
         items={inventoryItems}
-        onSave={async () => {
-          // Later: API save
-          closeDamageModal();
-          await loadInventory();
-          await loadAll();
-        }}
+        onSave={handleSaveDamage}
       />
     </>
   );

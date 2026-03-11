@@ -1,12 +1,11 @@
-//backend/server/routes/user.js
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const pool = require("../db");
-const { authRequired } = require("../middleware/auth"); // ✅ adjust path if needed
+const { authRequired } = require("../middleware/auth");
 
 const router = express.Router();
 
-// ✅ GET /api/users/:id (protected)
+// GET /api/users/:id
 router.get("/:id", authRequired, async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -16,7 +15,11 @@ router.get("/:id", authRequired, async (req, res) => {
        WHERE u.user_id=? LIMIT 1`,
       [Number(req.params.id)]
     );
-    if (!rows[0]) return res.status(404).json({ message: "User not found" });
+
+    if (!rows[0]) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
     res.json(rows[0]);
   } catch (e) {
     console.error(e);
@@ -24,20 +27,22 @@ router.get("/:id", authRequired, async (req, res) => {
   }
 });
 
-// ✅ PUT /api/users/:id (protected)
+// PUT /api/users/:id
 router.put("/:id", authRequired, async (req, res) => {
   const { username, password, role_id, shift_start, shift_end } = req.body;
 
   try {
     const id = Number(req.params.id);
 
-    // optional: prevent duplicate usernames
     if (username !== undefined) {
       const [dup] = await pool.query(
         "SELECT user_id FROM users WHERE username=? AND user_id <> ? LIMIT 1",
         [String(username).trim(), id]
       );
-      if (dup.length) return res.status(409).json({ message: "Username already exists" });
+
+      if (dup.length) {
+        return res.status(409).json({ message: "Username already exists" });
+      }
     }
 
     const fields = [];
@@ -77,9 +82,10 @@ router.put("/:id", authRequired, async (req, res) => {
       params
     );
 
-    if (r.affectedRows === 0) return res.status(404).json({ message: "User not found" });
+    if (r.affectedRows === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-    // return updated user (handy for frontend)
     const [rows] = await pool.query(
       `SELECT u.user_id, u.username, u.role_id, u.shift_start, u.shift_end, r.role_name
        FROM users u

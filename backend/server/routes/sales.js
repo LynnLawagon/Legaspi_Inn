@@ -1,4 +1,3 @@
-// backend/server/routes/sales.js
 const express = require("express");
 const pool = require("../db");
 
@@ -6,7 +5,6 @@ const router = express.Router();
 
 /**
  * GET /api/sales/summary
- * Returns todayTotal + todayCount (for Dashboard.jsx)
  */
 router.get("/summary", async (req, res) => {
   try {
@@ -34,7 +32,6 @@ router.get("/summary", async (req, res) => {
 
 /**
  * GET /api/sales?from=YYYY-MM-DD&to=YYYY-MM-DD&limit=50
- * Sales list rows for Sales page + Dashboard recent
  */
 router.get("/", async (req, res) => {
   try {
@@ -63,25 +60,21 @@ router.get("/", async (req, res) => {
         s.trans_id,
         s.user_id,
         s.sale_date,
-
-        g.name AS guest_name,
+        g.guest_name AS guest_name,
         r.room_number,
         u.username,
-
         COALESCE(SUM(sd.quantity), 0) AS items_count,
         COALESCE(SUM(sd.quantity * sd.unit_price_sold), 0) AS total_amount
-
       FROM sales s
       LEFT JOIN transactions t ON t.trans_id = s.trans_id
       LEFT JOIN guests g ON g.guest_id = t.guest_id
       LEFT JOIN rooms r ON r.room_id = t.room_id
       LEFT JOIN users u ON u.user_id = s.user_id
       LEFT JOIN sales_details sd ON sd.sales_id = s.sales_id
-
       ${whereSQL}
       GROUP BY
         s.sales_id, s.trans_id, s.user_id, s.sale_date,
-        g.name, r.room_number, u.username
+        g.guest_name, r.room_number, u.username
       ORDER BY s.sale_date DESC, s.sales_id DESC
       ${limitSQL}
       `,
@@ -100,7 +93,6 @@ router.get("/", async (req, res) => {
 
 /**
  * GET /api/sales/:sales_id/details
- * Returns line items for modal
  */
 router.get("/:sales_id/details", async (req, res) => {
   try {
@@ -114,8 +106,7 @@ router.get("/:sales_id/details", async (req, res) => {
         sd.inv_id,
         sd.quantity,
         sd.unit_price_sold,
-
-        i.name AS item_name
+        i.item_name AS item_name
       FROM sales_details sd
       LEFT JOIN inventory i ON i.inv_id = sd.inv_id
       WHERE sd.sales_id = ?

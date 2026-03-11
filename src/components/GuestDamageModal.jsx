@@ -1,84 +1,155 @@
-//src/components/GuestDamageModal.jsx
-import { useMemo, useState, useEffect } from "react";
-import "./GuestDamageModal.css";
+import { useEffect, useMemo, useState } from "react";
+import { apiFetch } from "../lib/api";
+import "./EmployeeDamageModal.css";
 
-export default function GuestDamageModal({
+export default function EmployeeDamageModal({
   open,
   onClose,
-  transId,
-  guestName,
-  roomNumber = "",
+  user,
+  damageRows = [],
   items = [],
   locked = false,
-  onSave, // (payload)=>void
+  onAdded,
 }) {
-  const [invId, setInvId] = useState("");
-  const [qty, setQty] = useState(1);
-  const [type, setType] = useState("Broken");
-  const [charge, setCharge] = useState("");
-  const [status, setStatus] = useState("Pending");
-  const [desc, setDesc] = useState("");
+  const damageStatuses = useMemo(
+    () => [
+      { damage_status_id: 1, status_name: "Reported" },
+      { damage_status_id: 2, status_name: "Under Review" },
+      { damage_status_id: 3, status_name: "Resolved" },
+      { damage_status_id: 4, status_name: "Charged" },
+    ],
+    []
+  );
 
-  useEffect(() => {
-    if (!open) return;
-    setInvId("");
-    setQty(1);
-    setType("Broken");
-    setCharge("");
-    setStatus("Pending");
-    setDesc("");
-  }, [open, transId]);
+  function statusName(damage_status_id) {
+    return (
+      damageStatuses.find((s) => s.damage_status_id === Number(damage_status_id))?.status_name ??
+      "—"
+    );
+  }
+
+  const totalDamages = useMemo(() => {
+    return (damageRows || []).reduce((sum, r) => sum + Number(r.cost || 0), 0);
+  }, [damageRows]);
+
+  const [invId, setInvId] = useState("");
+  const [statusId, setStatusId] = useState("1");
+  const [cost, setCost] = useState("");
+  const [err, setErr] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const selected = useMemo(
     () => items.find((x) => String(x.inv_id) === String(invId)),
     [items, invId]
   );
-  const stock = Number(selected?.quantity || 0);
 
-  function clampQty(v) {
-    const n = Math.max(1, Math.floor(Number(v || 1)));
-    return stock ? Math.min(n, stock) : n;
-  }
+  useEffect(() => {
+    if (!open) return;
+    setInvId("");
+    setStatusId("1");
+    setCost("");
+    setErr("");
+    setSubmitting(false);
+  }, [open, user?.user_id]);
 
-  function handleSave() {
-    onSave?.({
-      trans_id: transId,
-      inv_id: invId,
-      qty: Number(qty),
-      damage_type: type,
-      charge_amount: Number(charge || 0),
-      status,
-      description: desc,
-    });
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.key === "Escape" && open) onClose?.();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
+  async function handleAdd(e) {
+    e.preventDefault();
+    if (locked) return;
+
+    setErr("");
+
+    if (!user?.user_id) return setErr("No employee selected.");
+    if (!invId) return setErr("Please select an inventory item.");
+
+    const costNum = Number(cost || 0);
+    if (!Number.isFinite(costNum) || costNum <= 0) {
+      return setErr("Cost must be greater than 0.");
+    }
+
+    setSubmitting(true);
+    try {
+      await apiFetch("/employee-damage", {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: Number(user.user_id),
+          inv_id: Number(invId),
+          damage_status_id: Number(statusId),
+          cost: costNum,
+        }),
+      });
+
+      setInvId("");
+      setStatusId("1");
+      setCost("");
+
+      await onAdded?.();
+    } catch (e2) {
+      setErr(e2?.message || "Failed to add employee damage.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   if (!open) return null;
 
   return (
     <div
-      className={`gd-overlay ${open ? "show" : ""}`}
-      onClick={(e) => e.target.classList.contains("gd-overlay") && onClose?.()}
+      className="edm-overlay show"
+      id="employeeDamageModal"
+      aria-hidden={!open}
+      onClick={(e) => {
+        if (e.target.id === "employeeDamageModal") onClose?.();
+      }}
     >
-      <div className="gd-modal" role="dialog" aria-modal="true" aria-label="Guest Damage">
-        <button className="gd-x" type="button" onClick={onClose}>✕</button>
+      <div className="edm-card" role="dialog" aria-modal="true" aria-labelledby="edmTitle">
+        <button className="edm-close" type="button" aria-label="Close" onClick={onClose}>
+          ✕
+        </button>
 
-        <div className="gd-head">
-          <h2>Report Guest Damage</h2>
-          <p className="gd-sub">
-            Transaction <b>#{transId || "—"}</b>
-            {guestName ? <> • Guest: <b>{guestName}</b></> : null}
-            {roomNumber ? <> • Room: <b>{roomNumber}</b></> : null}
-          </p>
+        <div className="edm-head">
+          <div>
+            <h2 id="edmTitle">Employee Damage</h2>
+            <p className="edm-sub">
+              {user?.username ?? user?.name ?? "Employee"} <span className="edm-dot">•</span>{" "}
+              {user?.user_id ?? "—"}
+            </p>
+          </div>
 
-          {locked ? <div className="gd-lock">Locked: This transaction is already paid.</div> : null}
+          <div className="edm-kpis">
+            <span className="edm-chip">Total: ₱{totalDamages.toLocaleString()}</span>
+            <span className="edm-chip ghost">Count: {(damageRows || []).length}</span>
+          </div>
         </div>
 
-        <div className="gd-body">
-          <div className="gd-grid">
-            <label className="gd-field">
-              <span>Damaged Item</span>
+        <div className="edm-add">
+          <div className="edm-add-title">Add Damage</div>
+          <div className="edm-add-sub">Please select an inventory item.</div>
+
+          {err ? <div className="edm-alert">{err}</div> : null}
+          {locked ? <div className="edm-lock">Locked</div> : null}
+
+          <form className="edm-add-grid" onSubmit={handleAdd}>
+            <label className="edm-field">
+              <span>Inventory</span>
               <select value={invId} onChange={(e) => setInvId(e.target.value)} disabled={locked}>
-                <option value="">Select item</option>
+                <option value="">Select inventory</option>
                 {items.map((it) => (
                   <option key={it.inv_id} value={it.inv_id}>
                     {it.item_name} (stock: {it.quantity})
@@ -87,88 +158,81 @@ export default function GuestDamageModal({
               </select>
             </label>
 
-            <label className="gd-field">
-              <span>Damage Type</span>
-              <select value={type} onChange={(e) => setType(e.target.value)} disabled={locked}>
-                <option>Broken</option>
-                <option>Missing</option>
-                <option>Stained</option>
-                <option>Other</option>
+            <label className="edm-field">
+              <span>Status</span>
+              <select value={statusId} onChange={(e) => setStatusId(e.target.value)} disabled={locked}>
+                {damageStatuses.map((s) => (
+                  <option key={s.damage_status_id} value={s.damage_status_id}>
+                    {s.status_name}
+                  </option>
+                ))}
               </select>
             </label>
 
-            <label className="gd-field">
-              <span>Quantity</span>
-              <div className="gd-stepper">
-                <button type="button" onClick={() => setQty((p) => Math.max(1, p - 1))} disabled={locked || !invId}>
-                  −
-                </button>
-                <input
-                  type="number"
-                  min="1"
-                  value={qty}
-                  onChange={(e) => setQty(clampQty(e.target.value))}
-                  disabled={locked || !invId}
-                />
-                <button
-                  type="button"
-                  onClick={() => setQty((p) => clampQty(p + 1))}
-                  disabled={locked || !invId || (stock ? qty >= stock : false)}
-                >
-                  +
-                </button>
-              </div>
-              <small className="gd-hint">
-                {invId ? `Available stock: ${stock}` : "Pick an item first"}
-              </small>
-            </label>
-
-            <label className="gd-field">
-              <span>Charge Amount (₱)</span>
+            <label className="edm-field">
+              <span>Cost to Hotel (₱)</span>
               <input
                 type="number"
                 step="0.01"
                 placeholder="0.00"
-                value={charge}
-                onChange={(e) => setCharge(e.target.value)}
-                disabled={locked}
-              />
-              <small className="gd-hint">This will appear in the guest receipt.</small>
-            </label>
-
-            <label className="gd-field">
-              <span>Status</span>
-              <select value={status} onChange={(e) => setStatus(e.target.value)} disabled={locked}>
-                <option>Pending</option>
-                <option>Paid</option>
-                <option>Waived</option>
-              </select>
-            </label>
-
-            <label className="gd-field gd-wide">
-              <span>Description (optional)</span>
-              <textarea
-                rows={3}
-                value={desc}
-                onChange={(e) => setDesc(e.target.value)}
-                placeholder="Short notes about what happened"
+                value={cost}
+                onChange={(e) => setCost(e.target.value)}
                 disabled={locked}
               />
             </label>
-          </div>
 
-          <div className="gd-actions">
-            <button className="gd-btn gd-secondary" type="button" onClick={onClose}>
-              Cancel
+            <button className="edm-btn primary" type="submit" disabled={locked || submitting}>
+              {submitting ? "Adding..." : "Add"}
             </button>
-            <button className="gd-btn gd-primary" type="button" onClick={handleSave} disabled={locked || !invId}>
-              Save Damage Fee
-            </button>
-          </div>
+          </form>
+        </div>
 
-          <div className="gd-footnote">
-            Note: Guest damages affect the receipt totals. Employee damages should be recorded under Profile.
-          </div>
+        <div className="edm-divider" />
+
+        <div className="edm-table-wrap">
+          <table className="edm-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Inventory</th>
+                <th>Date Reported</th>
+                <th>Status</th>
+                <th>Cost</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {!damageRows || damageRows.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="edm-empty">
+                    No employee damages found.
+                  </td>
+                </tr>
+              ) : (
+                damageRows.map((r) => (
+                  <tr key={r.edam_id}>
+                    <td className="edm-mono">ED{r.edam_id}</td>
+                    <td title={r.inventory_name || r.item_name || ""}>
+                      {r.inventory_name ?? r.item_name ?? `INV-${r.inv_id}`}
+                    </td>
+                    <td className="edm-mono">{r.date_reported}</td>
+                    <td>
+                      <span className={`edm-status s-${String(r.damage_status_id)}`}>
+                        {statusName(r.damage_status_id)}
+                      </span>
+                    </td>
+                    <td>₱{Number(r.cost ?? 0).toLocaleString()}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="edm-actions">
+          <button className="edm-btn" type="button" onClick={onClose}>
+            Close
+          </button>
         </div>
       </div>
     </div>

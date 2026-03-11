@@ -4,7 +4,6 @@ const router = express.Router();
 
 /**
  * GET /api/rooms
- * List rooms with type + status
  */
 router.get("/", async (req, res) => {
   try {
@@ -15,14 +14,14 @@ router.get("/", async (req, res) => {
         r.room_id,
         r.room_number,
         r.room_type_id,
-        r.status_id,
+        r.room_status_id,
         rt.type_name,
         rt.base_rate,
         rt.capacity,
         rs.status_name
       FROM rooms r
       LEFT JOIN room_type rt ON rt.room_type_id = r.room_type_id
-      LEFT JOIN room_status rs ON rs.status_id = r.status_id
+      LEFT JOIN room_status rs ON rs.room_status_id = r.room_status_id
     `;
 
     const params = [];
@@ -31,8 +30,9 @@ router.get("/", async (req, res) => {
       sql += `
         WHERE r.room_number LIKE ?
            OR rt.type_name LIKE ?
+           OR rs.status_name LIKE ?
       `;
-      params.push(`%${q}%`, `%${q}%`);
+      params.push(`%${q}%`, `%${q}%`, `%${q}%`);
     }
 
     sql += ` ORDER BY r.room_number ASC, r.room_id ASC`;
@@ -47,7 +47,6 @@ router.get("/", async (req, res) => {
 
 /**
  * GET /api/rooms/lookups
- * Returns room types + statuses
  */
 router.get("/lookups", async (req, res) => {
   try {
@@ -55,7 +54,7 @@ router.get("/lookups", async (req, res) => {
       `SELECT room_type_id, type_name, base_rate, capacity FROM room_type ORDER BY type_name ASC`
     );
     const [statuses] = await pool.query(
-      `SELECT status_id, status_name FROM room_status ORDER BY status_name ASC`
+      `SELECT room_status_id, status_name FROM room_status ORDER BY status_name ASC`
     );
 
     res.json({
@@ -70,20 +69,20 @@ router.get("/lookups", async (req, res) => {
 
 /**
  * POST /api/rooms
- * body: { room_number, room_type_id, status_id }
  */
 router.post("/", async (req, res) => {
-  const { room_number, room_type_id, status_id } = req.body;
+  const { room_number, room_type_id, room_status_id } = req.body;
 
-  if (!room_number || !room_type_id || !status_id) {
-    return res.status(400).json({ message: "room_number, room_type_id, status_id are required" });
+  if (!room_number || !room_type_id || !room_status_id) {
+    return res.status(400).json({ message: "room_number, room_type_id, room_status_id are required" });
   }
 
   try {
     const [r] = await pool.query(
-      `INSERT INTO rooms (room_number, room_type_id, status_id) VALUES (?, ?, ?)`,
-      [String(room_number).trim(), Number(room_type_id), Number(status_id)]
+      `INSERT INTO rooms (room_number, room_type_id, room_status_id) VALUES (?, ?, ?)`,
+      [String(room_number).trim(), Number(room_type_id), Number(room_status_id)]
     );
+
     res.status(201).json({ room_id: r.insertId });
   } catch (e) {
     console.error("create room error:", e);
@@ -93,15 +92,14 @@ router.post("/", async (req, res) => {
 
 /**
  * PUT /api/rooms/:id
- * body: { room_number, room_type_id, status_id }
  */
 router.put("/:id", async (req, res) => {
-  const { room_number, room_type_id, status_id } = req.body;
+  const { room_number, room_type_id, room_status_id } = req.body;
 
   try {
     const [r] = await pool.query(
-      `UPDATE rooms SET room_number=?, room_type_id=?, status_id=? WHERE room_id=?`,
-      [String(room_number).trim(), Number(room_type_id), Number(status_id), Number(req.params.id)]
+      `UPDATE rooms SET room_number=?, room_type_id=?, room_status_id=? WHERE room_id=?`,
+      [String(room_number).trim(), Number(room_type_id), Number(room_status_id), Number(req.params.id)]
     );
 
     if (r.affectedRows === 0) return res.status(404).json({ message: "Room not found" });
@@ -118,6 +116,7 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const [r] = await pool.query(`DELETE FROM rooms WHERE room_id=?`, [Number(req.params.id)]);
+
     if (r.affectedRows === 0) return res.status(404).json({ message: "Room not found" });
     res.json({ deleted: r.affectedRows });
   } catch (e) {
