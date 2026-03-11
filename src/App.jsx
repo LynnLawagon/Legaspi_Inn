@@ -13,6 +13,8 @@ import Guest from "./pages/Guest";
 
 import Sales from "./pages/Sales";
 
+import Employee from "./pages/Employee";
+
 import { getToken } from "./utils/auth";
 
 function RequireAuth({ children }) {

@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
+import { apiFetch } from "../lib/api";
 import "./SalesModal.css";
 
 export default function SalesModal({
@@ -9,6 +10,7 @@ export default function SalesModal({
   roomNumber = "",
   items = [],
   locked = false,
+  userId = null,
   onSave,
 }) {
   const [invId, setInvId] = useState("");
@@ -16,6 +18,7 @@ export default function SalesModal({
   const [unitPrice, setUnitPrice] = useState(0);
   const [note, setNote] = useState("");
   const [cart, setCart] = useState([]);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -24,6 +27,7 @@ export default function SalesModal({
     setUnitPrice(0);
     setNote("");
     setCart([]);
+    setSaving(false);
   }, [open, transId]);
 
   const selected = useMemo(
@@ -35,12 +39,7 @@ export default function SalesModal({
 
   useEffect(() => {
     if (!selected) return;
-    const p = Number(
-      selected.unit_price ??
-        selected.current_cost ??
-        selected.price ??
-        0
-    );
+    const p = Number(selected.item_value ?? selected.unit_price ?? selected.price ?? 0);
     setUnitPrice(p);
     setQty(1);
   }, [selected]);
@@ -59,36 +58,75 @@ export default function SalesModal({
 
   function addToCart() {
     if (!selected) return;
+
     const safeQty = clampQty(qty);
+    if (!Number.isFinite(safeQty) || safeQty <= 0) return;
     if (stock && safeQty > stock) return;
 
-    setCart((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        inv_id: selected.inv_id,
-        name: selected.item_name,
-        qty: safeQty,
-        unitPrice: Number(unitPrice || 0),
-      },
-    ]);
+    setCart((prev) => {
+      const existing = prev.find((x) => Number(x.inv_id) === Number(selected.inv_id));
+      if (existing) {
+        return prev.map((x) =>
+          Number(x.inv_id) === Number(selected.inv_id)
+            ? {
+                ...x,
+                qty: x.qty + safeQty,
+              }
+            : x
+        );
+      }
+
+      return [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          inv_id: selected.inv_id,
+          name: selected.item_name,
+          qty: safeQty,
+          unitPrice: Number(unitPrice || 0),
+        },
+      ];
+    });
 
     setInvId("");
     setQty(1);
     setUnitPrice(0);
-    setNote("");
   }
 
   function removeLine(id) {
     setCart((prev) => prev.filter((x) => x.id !== id));
   }
 
-  function handleFinalSave() {
-    onSave?.({
-      trans_id: transId,
-      cart,
-      note,
-    });
+  async function handleFinalSave() {
+    if (!transId || !userId || cart.length === 0) return;
+
+    setSaving(true);
+    try {
+      await apiFetch("/sales", {
+        method: "POST",
+        body: JSON.stringify({
+          trans_id: Number(transId),
+          user_id: Number(userId),
+          items: cart.map((r) => ({
+            inv_id: Number(r.inv_id),
+            quantity: Number(r.qty),
+          })),
+          note,
+        }),
+      });
+
+      await onSave?.({
+        trans_id: transId,
+        cart,
+        note,
+      });
+
+      onClose?.();
+    } catch (e) {
+      alert(e.message || "Failed to save sale");
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (!open) return null;
@@ -173,8 +211,12 @@ export default function SalesModal({
 
               <label className="li-field">
                 <span>Unit Price</span>
-                <input type="text" value={unitPrice ? `₱${unitPrice.toFixed(2)}` : "₱0.00"} readOnly />
-                <small className="li-hint">Auto-filled</small>
+                <input
+                  type="text"
+                  value={unitPrice ? `₱${unitPrice.toFixed(2)}` : "₱0.00"}
+                  readOnly
+                />
+                <small className="li-hint">Auto-filled from inventory</small>
               </label>
             </div>
 
@@ -240,7 +282,7 @@ export default function SalesModal({
                               className="li-icon"
                               type="button"
                               onClick={() => removeLine(r.id)}
-                              disabled={locked}
+                              disabled={locked || saving}
                               title="Remove"
                             >
                               🗑
@@ -266,14 +308,14 @@ export default function SalesModal({
                   className="li-btn li-primary"
                   type="button"
                   onClick={handleFinalSave}
-                  disabled={locked || cart.length === 0}
+                  disabled={locked || cart.length === 0 || saving}
                 >
-                  Save Sale
+                  {saving ? "Saving..." : "Save Sale"}
                 </button>
               </div>
 
               <div className="li-footnote">
-                Tip: Items added here will reflect in the receipt under “Additional Sales”.
+                Tip: Items added here will reflect in the transaction sales total.
               </div>
             </div>
           </div>

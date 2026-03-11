@@ -30,15 +30,12 @@ export default function ReceiptModal({ open, onClose, tx, processedBy = "" }) {
   useEffect(() => {
     if (!open || !tx?.trans_id) return;
 
-    apiFetch(`/purchased/by-transaction/${tx.trans_id}`)
+    apiFetch(`/sales/transaction/${tx.trans_id}/details`)
       .then((rows) => setItems(Array.isArray(rows) ? rows : []))
       .catch(() => setItems([]));
 
-    apiFetch(`/damages?limit=200`)
-      .then((rows) => {
-        const all = Array.isArray(rows) ? rows : [];
-        setDamages(all.filter((d) => Number(d.trans_id) === Number(tx.trans_id)));
-      })
+    apiFetch(`/damages/transaction/${tx.trans_id}`)
+      .then((rows) => setDamages(Array.isArray(rows) ? rows : []))
       .catch(() => setDamages([]));
   }, [open, tx?.trans_id]);
 
@@ -47,7 +44,7 @@ export default function ReceiptModal({ open, onClose, tx, processedBy = "" }) {
 
   const roomCharge = Number(tx?.actual_rate_charged || 0);
   const salesTotal = useMemo(
-    () => items.reduce((s, it) => s + Number(it.quantity) * Number(it.unit_cost), 0),
+    () => items.reduce((s, it) => s + Number(it.quantity) * Number(it.unit_price_sold), 0),
     [items]
   );
   const damageTotal = useMemo(
@@ -122,7 +119,7 @@ export default function ReceiptModal({ open, onClose, tx, processedBy = "" }) {
 
             <div style={{ height: 14 }} />
 
-            <div className="r-section">Additional Sales</div>
+            <div className="r-section">Purchased Items</div>
 
             {items.length === 0 ? (
               <div className="r-row">
@@ -131,9 +128,9 @@ export default function ReceiptModal({ open, onClose, tx, processedBy = "" }) {
               </div>
             ) : (
               items.map((it) => (
-                <div className="r-row" key={it.pd_id}>
-                  <div className="r-item">{it.quantity} {it.item_name}</div>
-                  <div className="r-amt">{money(Number(it.quantity) * Number(it.unit_cost))}</div>
+                <div className="r-row" key={it.sd_id}>
+                  <div className="r-item">{it.quantity} x {it.item_name}</div>
+                  <div className="r-amt">{money(Number(it.quantity) * Number(it.unit_price_sold))}</div>
                 </div>
               ))
             )}

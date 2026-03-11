@@ -1,4 +1,3 @@
-//src/pages/Sales.jsx
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../lib/api";
 import "./Sales.css";
@@ -45,7 +44,6 @@ export default function Sales() {
       if (from) qs.set("from", from);
       if (to) qs.set("to", to);
 
-      // backend should be mounted at /api/sales, apiFetch usually prefixes /api already
       const data = await apiFetch(`/sales?${qs.toString()}`);
       setRows(Array.isArray(data) ? data : []);
     } catch (e) {
@@ -57,10 +55,10 @@ export default function Sales() {
     }
   }
 
-  async function loadDetails(sales_id) {
+  async function loadDetails(transId) {
     setDetailsLoading(true);
     try {
-      const data = await apiFetch(`/sales/${sales_id}/details`);
+      const data = await apiFetch(`/sales/transaction/${transId}/details`);
       setDetailsRows(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);
@@ -81,7 +79,7 @@ export default function Sales() {
     if (!s) return rows;
 
     return rows.filter((r) =>
-      `${r.guest_name || ""} ${r.room_number || ""} ${r.username || ""} ${r.sales_id || ""} ${r.trans_id || ""}`
+      `${r.guest_name || ""} ${r.room_number || ""} ${r.username || ""} ${r.trans_id || ""}`
         .toLowerCase()
         .includes(s)
     );
@@ -97,7 +95,7 @@ export default function Sales() {
   function openDetails(row) {
     setSelected(row);
     setDetailsOpen(true);
-    loadDetails(row.sales_id);
+    loadDetails(row.trans_id);
   }
 
   function closeDetails() {
@@ -116,24 +114,23 @@ export default function Sales() {
 
   return (
     <div className="sales-page">
-      {/* HEADER AREA */}
       <div className="sales-header">
         <div className="page-header">
           <h1 className="page-title">Sales</h1>
 
           <div className="page-actions">
-<label className="page-date page-search">
-  <span>&nbsp;</span>
-  <div className="search-wrap">
-    <img src="/assets/images/search.png" alt="search" />
-    <input
-      type="text"
-      placeholder="Search guest / room / employee / ID..."
-      value={q}
-      onChange={(e) => setQ(e.target.value)}
-    />
-  </div>
-</label>
+            <label className="page-date page-search">
+              <span>&nbsp;</span>
+              <div className="search-wrap">
+                <img src="/assets/images/search.png" alt="search" />
+                <input
+                  type="text"
+                  placeholder="Search guest / room / employee / transaction..."
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                />
+              </div>
+            </label>
 
             <div className="page-filters">
               <label className="page-date">
@@ -153,27 +150,27 @@ export default function Sales() {
           </div>
         </div>
 
-        {/* KPI CHIPS */}
         <div className="sales-kpis">
-          <span className="sales-chip">Total Sales: {fmtMoney(totals.amount)}</span>
+          <span className="sales-chip">Total Revenue: {fmtMoney(totals.amount)}</span>
           <span className="sales-chip ghost">Records: {totals.count}</span>
-          <span className="sales-chip ghost">Items: {totals.items}</span>
+          <span className="sales-chip ghost">Purchased Items: {totals.items}</span>
         </div>
       </div>
 
-      {/* TABLE CARD */}
       <section className="sales-card">
         <div className="sales-table-wrap">
           <table className="sales-table">
             <thead>
               <tr>
-                <th>Sales ID</th>
                 <th>Transaction</th>
                 <th className="th-left">Guest</th>
                 <th>Room</th>
                 <th>Employee</th>
                 <th>Date</th>
                 <th className="th-right">Items</th>
+                <th className="th-right">Room</th>
+                <th className="th-right">Damage</th>
+                <th className="th-right">Purchased</th>
                 <th className="th-right">Total</th>
                 <th>View</th>
               </tr>
@@ -182,7 +179,7 @@ export default function Sales() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={9} className="sales-empty">
+                  <td colSpan={11} className="sales-empty">
                     Loading...
                   </td>
                 </tr>
@@ -190,7 +187,7 @@ export default function Sales() {
 
               {!loading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="sales-empty">
+                  <td colSpan={11} className="sales-empty">
                     No sales found.
                   </td>
                 </tr>
@@ -198,8 +195,7 @@ export default function Sales() {
 
               {!loading &&
                 filtered.map((r) => (
-                  <tr key={r.sales_id}>
-                    <td className="td-mono">S{r.sales_id}</td>
+                  <tr key={r.trans_id}>
                     <td className="td-mono">T{r.trans_id}</td>
                     <td className="td-left" title={r.guest_name || ""}>
                       {r.guest_name || "—"}
@@ -208,6 +204,9 @@ export default function Sales() {
                     <td>{r.username || "—"}</td>
                     <td className="td-mono">{r.sale_date ? String(r.sale_date).slice(0, 10) : "—"}</td>
                     <td className="td-right">{Number(r.items_count || 0).toLocaleString()}</td>
+                    <td className="td-right">{fmtMoney(r.room_amount || 0)}</td>
+                    <td className="td-right">{fmtMoney(r.damage_amount || 0)}</td>
+                    <td className="td-right">{fmtMoney(r.purchased_amount || 0)}</td>
                     <td className="td-right">{fmtMoney(r.total_amount || 0)}</td>
                     <td className="td-center">
                       <button className="sales-view" type="button" onClick={() => openDetails(r)}>
@@ -221,7 +220,6 @@ export default function Sales() {
         </div>
       </section>
 
-      {/* DETAILS MODAL */}
       {detailsOpen ? (
         <div className="sd-overlay show" onClick={(e) => e.target.classList.contains("sd-overlay") && closeDetails()}>
           <div className="sd-card" role="dialog" aria-modal="true" aria-label="Sales Details">
@@ -231,10 +229,8 @@ export default function Sales() {
 
             <div className="sd-head">
               <div>
-                <h2>Sales Details</h2>
+                <h2>Purchased Item Details</h2>
                 <p className="sd-sub">
-                  Sales <b className="td-mono">S{selected?.sales_id ?? "—"}</b>
-                  <span className="sd-dot">•</span>
                   Transaction <b className="td-mono">T{selected?.trans_id ?? "—"}</b>
                   {selected?.guest_name ? (
                     <>
@@ -245,7 +241,7 @@ export default function Sales() {
               </div>
 
               <div className="sd-kpis">
-                <span className="sd-chip">Total: {fmtMoney(selected?.total_amount || 0)}</span>
+                <span className="sd-chip">Purchased: {fmtMoney(selected?.purchased_amount || 0)}</span>
                 <span className="sd-chip">Items: {Number(selected?.items_count || 0)}</span>
               </div>
             </div>
@@ -272,7 +268,7 @@ export default function Sales() {
                   ) : detailsRows.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="sd-empty">
-                        No items found for this sale.
+                        No purchased items found for this transaction.
                       </td>
                     </tr>
                   ) : (

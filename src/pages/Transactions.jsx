@@ -54,10 +54,20 @@ export default function Transactions() {
   const [receiptTarget, setReceiptTarget] = useState(null);
 
   const [salesOpen, setSalesOpen] = useState(false);
-  const [salesTarget, setSalesTarget] = useState({ transId: "", guest: "", userId: null, room: "" });
+  const [salesTarget, setSalesTarget] = useState({
+    transId: "",
+    guest: "",
+    userId: null,
+    room: "",
+  });
 
   const [damageOpen, setDamageOpen] = useState(false);
-  const [damageTarget, setDamageTarget] = useState({ transId: "", guest: "", room: "", userId: null });
+  const [damageTarget, setDamageTarget] = useState({
+    transId: "",
+    guest: "",
+    room: "",
+    userId: null,
+  });
 
   async function loadAll() {
     setLoading(true);
@@ -137,6 +147,7 @@ export default function Transactions() {
     try {
       await apiFetch(`/transactions/${id}`, { method: "DELETE" });
       await loadAll();
+      await loadInventory();
     } catch (e) {
       alert(e.message || "Failed to delete transaction");
     }
@@ -161,7 +172,9 @@ export default function Transactions() {
         trans_status_id: Number(txForm.trans_status_id) || 1,
         checkin: txForm.checkin || null,
         checkout: txForm.checkout || null,
-        actual_rate_charged: txForm.actual_rate_charged ? Number(txForm.actual_rate_charged) : null,
+        actual_rate_charged: txForm.actual_rate_charged
+          ? Number(txForm.actual_rate_charged)
+          : null,
       };
 
       if (editingId) {
@@ -178,6 +191,7 @@ export default function Transactions() {
 
       closeTxModal();
       await loadAll();
+      await loadInventory();
     } catch (e) {
       alert(e.message || "Failed to save transaction");
     } finally {
@@ -239,17 +253,16 @@ export default function Transactions() {
         body: JSON.stringify({
           trans_id: Number(payload.trans_id),
           inv_id: Number(payload.inv_id),
-          charge_amount: Number(payload.charge_amount || 0),
-          damage_status_id: 1,
+          damage_status_id: Number(payload.damage_status_id),
           date_reported: new Date().toISOString().slice(0, 19).replace("T", " "),
         }),
       });
 
-      closeDamageModal();
       await loadInventory();
       await loadAll();
     } catch (e) {
       alert(e.message || "Failed to save damage");
+      throw e;
     }
   }
 
@@ -277,15 +290,18 @@ export default function Transactions() {
             <colgroup>
               <col style={{ width: "55px" }} />
               <col style={{ width: "100px" }} />
-              <col style={{ width: "130px" }} />
-              <col style={{ width: "110px" }} />
-              <col style={{ width: "60px" }} />
               <col style={{ width: "140px" }} />
+              <col style={{ width: "120px" }} />
+              <col style={{ width: "70px" }} />
+              <col style={{ width: "140px" }} />
+              <col style={{ width: "140px" }} />
+              <col style={{ width: "95px" }} />
+              <col style={{ width: "110px" }} />
+              <col style={{ width: "100px" }} />
+              <col style={{ width: "100px" }} />
+              <col style={{ width: "110px" }} />
               <col style={{ width: "160px" }} />
-              <col style={{ width: "90px" }} />
-              <col style={{ width: "160px" }} />
-              <col style={{ width: "92px" }} />
-              <col style={{ width: "130px" }} />
+              <col style={{ width: "260px" }} />
             </colgroup>
 
             <thead>
@@ -297,9 +313,12 @@ export default function Transactions() {
                 <th>Room #</th>
                 <th>Check-in</th>
                 <th>Check-out</th>
-                <th>Amount</th>
+                <th>Hours</th>
+                <th>Room Cost</th>
+                <th>Damage</th>
+                <th>Sales</th>
+                <th>Total Bill</th>
                 <th>Date Created</th>
-                <th className="col-action"></th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -307,13 +326,13 @@ export default function Transactions() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={11} className="td-center" style={{ opacity: 0.7 }}>
+                  <td colSpan={14} className="td-center" style={{ opacity: 0.7 }}>
                     Loading...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="td-center">
+                  <td colSpan={14} className="td-center">
                     No results
                   </td>
                 </tr>
@@ -322,8 +341,9 @@ export default function Transactions() {
                   const ci = splitToDisplayParts(t.checkin);
                   const co = splitToDisplayParts(t.checkout);
                   const dc = splitToDisplayParts(t.date_created);
-                  const isPaid = Number(t.trans_status_id) === 2;
-                  const statusName = isPaid ? "paid" : "unpaid";
+                  const statusText = String(t.transaction_status || "").toLowerCase();
+                  const isPaid = statusText === "paid" || Number(t.trans_status_id) === 1;
+                  const statusName = t.transaction_status || "Unknown";
 
                   return (
                     <tr key={t.trans_id} className={`tx-row ${isPaid ? "paid" : "unpaid"}`}>
@@ -360,7 +380,11 @@ export default function Transactions() {
                         <span className="muted">{co.time}</span>
                       </td>
 
+                      <td>{Number(t.room_hours || 0)}</td>
                       <td>₱{Number(t.actual_rate_charged || 0).toFixed(2)}</td>
+                      <td>₱{Number(t.total_damage || 0).toFixed(2)}</td>
+                      <td>₱{Number(t.sales_total || 0).toFixed(2)}</td>
+                      <td>₱{Number(t.total_bill || 0).toFixed(2)}</td>
 
                       <td className="td-center">
                         {dc.date}
@@ -368,38 +392,50 @@ export default function Transactions() {
                         <span className="muted">{dc.time}</span>
                       </td>
 
-                      <td className="col-action">
-                        <button
-                          className="cart-btn"
-                          type="button"
-                          onClick={() => openSalesModal(t)}
-                          title="Purchased Items"
-                        >
-                          <img className="row-icon" src="/assets/images/sales.png" alt="cart" />
-                        </button>
-
-                        <button
-                          className="cart-btn"
-                          type="button"
-                          onClick={() => openDamageModal(t)}
-                          title="Report Damage"
-                          style={{ marginLeft: 8 }}
-                        >
-                          <img className="row-icon" src="/assets/images/damage.png" alt="damage" />
-                        </button>
-                      </td>
-
                       <td className="td-center">
-                        <button className="btn small" type="button" onClick={() => openTxModal(t)}>
-                          Edit
-                        </button>
-                        <button
-                          className="btn small danger"
-                          type="button"
-                          onClick={() => deleteTransaction(t.trans_id)}
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "8px",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                          }}
                         >
-                          Delete
-                        </button>
+                          <button
+                            className="btn small"
+                            type="button"
+                            onClick={() => openSalesModal(t)}
+                            title="Purchased Items"
+                          >
+                            Sales
+                          </button>
+
+                          <button
+                            className="btn small"
+                            type="button"
+                            onClick={() => openDamageModal(t)}
+                            title="Report Damage"
+                          >
+                            Damage
+                          </button>
+
+                          <button
+                            className="btn small"
+                            type="button"
+                            onClick={() => openTxModal(t)}
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            className="btn small danger"
+                            type="button"
+                            onClick={() => deleteTransaction(t.trans_id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -464,7 +500,11 @@ export default function Transactions() {
 
               <label className="field">
                 <span>Room</span>
-                <select value={txForm.room_id} onChange={(e) => handleRoomChange(e.target.value)} required>
+                <select
+                  value={txForm.room_id}
+                  onChange={(e) => handleRoomChange(e.target.value)}
+                  required
+                >
                   <option value="">Select room</option>
                   {lookups.rooms.map((r) => (
                     <option key={r.room_id} value={r.room_id}>
@@ -481,8 +521,9 @@ export default function Transactions() {
                   onChange={(e) => setTxForm((p) => ({ ...p, trans_status_id: e.target.value }))}
                   required
                 >
-                  <option value="1">Unpaid</option>
-                  <option value="2">Paid</option>
+                  <option value="1">Paid</option>
+                  <option value="2">Pending</option>
+                  <option value="3">Not paid</option>
                 </select>
               </label>
 
@@ -513,7 +554,9 @@ export default function Transactions() {
                   step="0.01"
                   placeholder="0.00"
                   value={txForm.actual_rate_charged}
-                  onChange={(e) => setTxForm((p) => ({ ...p, actual_rate_charged: e.target.value }))}
+                  onChange={(e) =>
+                    setTxForm((p) => ({ ...p, actual_rate_charged: e.target.value }))
+                  }
                   required
                 />
               </label>

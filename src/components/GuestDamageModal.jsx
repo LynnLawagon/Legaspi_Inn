@@ -2,55 +2,79 @@ import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../lib/api";
 import "./EmployeeDamageModal.css";
 
-export default function EmployeeDamageModal({
+export default function GuestDamageModal({
   open,
   onClose,
-  user,
-  damageRows = [],
+  transId,
+  guestName,
+  roomNumber = "",
   items = [],
   locked = false,
-  onAdded,
+  onSave,
 }) {
   const damageStatuses = useMemo(
     () => [
-      { damage_status_id: 1, status_name: "Reported" },
-      { damage_status_id: 2, status_name: "Under Review" },
-      { damage_status_id: 3, status_name: "Resolved" },
-      { damage_status_id: 4, status_name: "Charged" },
+      { damage_status_id: 1, status_name: "Small Damage (10%)" },
+      { damage_status_id: 2, status_name: "Medium Damage (30%)" },
+      { damage_status_id: 3, status_name: "Large Damage (70%)" },
+      { damage_status_id: 4, status_name: "Total Loss (100%)" },
     ],
     []
   );
 
-  function statusName(damage_status_id) {
-    return (
-      damageStatuses.find((s) => s.damage_status_id === Number(damage_status_id))?.status_name ??
-      "—"
-    );
-  }
-
-  const totalDamages = useMemo(() => {
-    return (damageRows || []).reduce((sum, r) => sum + Number(r.cost || 0), 0);
-  }, [damageRows]);
-
   const [invId, setInvId] = useState("");
   const [statusId, setStatusId] = useState("1");
-  const [cost, setCost] = useState("");
   const [err, setErr] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const [rows, setRows] = useState([]);
+  const [rowsLoading, setRowsLoading] = useState(false);
 
   const selected = useMemo(
     () => items.find((x) => String(x.inv_id) === String(invId)),
     [items, invId]
   );
 
+  const estimatedFee = useMemo(() => {
+    const value = Number(selected?.item_value || 0);
+    const statusNum = Number(statusId);
+    const rateMap = {
+      1: 0.1,
+      2: 0.3,
+      3: 0.7,
+      4: 1.0,
+    };
+    const rate = rateMap[statusNum] ?? 0;
+    return value * rate;
+  }, [selected, statusId]);
+
+  async function loadRows() {
+    if (!transId) {
+      setRows([]);
+      return;
+    }
+
+    setRowsLoading(true);
+    try {
+      const data = await apiFetch(`/damages/transaction/${transId}`);
+      setRows(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error(e);
+      setRows([]);
+      setErr(e.message || "Failed to load guest damages.");
+    } finally {
+      setRowsLoading(false);
+    }
+  }
+
   useEffect(() => {
     if (!open) return;
     setInvId("");
     setStatusId("1");
-    setCost("");
     setErr("");
     setSubmitting(false);
-  }, [open, user?.user_id]);
+    loadRows();
+  }, [open, transId]);
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -75,72 +99,82 @@ export default function EmployeeDamageModal({
 
     setErr("");
 
-    if (!user?.user_id) return setErr("No employee selected.");
+    if (!transId) return setErr("No transaction selected.");
     if (!invId) return setErr("Please select an inventory item.");
-
-    const costNum = Number(cost || 0);
-    if (!Number.isFinite(costNum) || costNum <= 0) {
-      return setErr("Cost must be greater than 0.");
-    }
+    if (!selected) return setErr("Selected item not found.");
+    if (Number(selected.quantity || 0) <= 0) return setErr("Selected item is out of stock.");
 
     setSubmitting(true);
     try {
-      await apiFetch("/employee-damage", {
-        method: "POST",
-        body: JSON.stringify({
-          user_id: Number(user.user_id),
-          inv_id: Number(invId),
-          damage_status_id: Number(statusId),
-          cost: costNum,
-        }),
+      await onSave?.({
+        trans_id: Number(transId),
+        inv_id: Number(invId),
+        damage_status_id: Number(statusId),
       });
 
       setInvId("");
       setStatusId("1");
-      setCost("");
-
-      await onAdded?.();
+      await loadRows();
     } catch (e2) {
-      setErr(e2?.message || "Failed to add employee damage.");
+      setErr(e2?.message || "Failed to add guest damage.");
     } finally {
       setSubmitting(false);
     }
   }
+
+  const totalGuestDamage = useMemo(() => {
+    return rows.reduce((sum, r) => sum + Number(r.charge_amount || 0), 0);
+  }, [rows]);
 
   if (!open) return null;
 
   return (
     <div
       className="edm-overlay show"
-      id="employeeDamageModal"
+      id="guestDamageModal"
       aria-hidden={!open}
       onClick={(e) => {
-        if (e.target.id === "employeeDamageModal") onClose?.();
+        if (e.target.id === "guestDamageModal") onClose?.();
       }}
     >
-      <div className="edm-card" role="dialog" aria-modal="true" aria-labelledby="edmTitle">
+      <div className="edm-card" role="dialog" aria-modal="true" aria-labelledby="gdmTitle">
         <button className="edm-close" type="button" aria-label="Close" onClick={onClose}>
           ✕
         </button>
 
         <div className="edm-head">
           <div>
-            <h2 id="edmTitle">Employee Damage</h2>
+            <h2 id="gdmTitle">Guest Damage</h2>
             <p className="edm-sub">
-              {user?.username ?? user?.name ?? "Employee"} <span className="edm-dot">•</span>{" "}
-              {user?.user_id ?? "—"}
+              Transaction <b>#{transId ?? "—"}</b>
+              {guestName ? (
+                <>
+                  <span className="edm-dot">•</span> {guestName}
+                </>
+              ) : null}
+              {roomNumber ? (
+                <>
+                  <span className="edm-dot">•</span> Room {roomNumber}
+                </>
+              ) : null}
             </p>
           </div>
 
           <div className="edm-kpis">
-            <span className="edm-chip">Total: ₱{totalDamages.toLocaleString()}</span>
-            <span className="edm-chip ghost">Count: {(damageRows || []).length}</span>
+            <span className="edm-chip">
+              Total: ₱
+              {totalGuestDamage.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+            <span className="edm-chip ghost">Count: {rows.length}</span>
           </div>
         </div>
 
         <div className="edm-add">
           <div className="edm-add-title">Add Damage</div>
-          <div className="edm-add-sub">Please select an inventory item.</div>
+          <div className="edm-add-sub">Select a damaged item and severity.</div>
 
           {err ? <div className="edm-alert">{err}</div> : null}
           {locked ? <div className="edm-lock">Locked</div> : null}
@@ -159,7 +193,7 @@ export default function EmployeeDamageModal({
             </label>
 
             <label className="edm-field">
-              <span>Status</span>
+              <span>Severity</span>
               <select value={statusId} onChange={(e) => setStatusId(e.target.value)} disabled={locked}>
                 {damageStatuses.map((s) => (
                   <option key={s.damage_status_id} value={s.damage_status_id}>
@@ -170,14 +204,18 @@ export default function EmployeeDamageModal({
             </label>
 
             <label className="edm-field">
-              <span>Cost to Hotel (₱)</span>
+              <span>Item Value (₱)</span>
               <input
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={cost}
-                onChange={(e) => setCost(e.target.value)}
-                disabled={locked}
+                type="text"
+                value={
+                  selected
+                    ? Number(selected.item_value || 0).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
+                    : "0.00"
+                }
+                readOnly
               />
             </label>
 
@@ -197,31 +235,35 @@ export default function EmployeeDamageModal({
                 <th>Inventory</th>
                 <th>Date Reported</th>
                 <th>Status</th>
-                <th>Cost</th>
+                <th>Charge</th>
               </tr>
             </thead>
 
             <tbody>
-              {!damageRows || damageRows.length === 0 ? (
+              {rowsLoading ? (
+                <tr>
+                  <td colSpan={5} className="edm-empty">Loading...</td>
+                </tr>
+              ) : rows.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="edm-empty">
-                    No employee damages found.
+                    No guest damages found.
                   </td>
                 </tr>
               ) : (
-                damageRows.map((r) => (
-                  <tr key={r.edam_id}>
-                    <td className="edm-mono">ED{r.edam_id}</td>
-                    <td title={r.inventory_name || r.item_name || ""}>
-                      {r.inventory_name ?? r.item_name ?? `INV-${r.inv_id}`}
-                    </td>
+                rows.map((r) => (
+                  <tr key={r.gdam_id}>
+                    <td className="edm-mono">GD{r.gdam_id}</td>
+                    <td>{r.item_name ?? `INV-${r.inv_id}`}</td>
                     <td className="edm-mono">{r.date_reported}</td>
+                    <td>{r.damage_status}</td>
                     <td>
-                      <span className={`edm-status s-${String(r.damage_status_id)}`}>
-                        {statusName(r.damage_status_id)}
-                      </span>
+                      ₱
+                      {Number(r.charge_amount ?? 0).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </td>
-                    <td>₱{Number(r.cost ?? 0).toLocaleString()}</td>
                   </tr>
                 ))
               )}

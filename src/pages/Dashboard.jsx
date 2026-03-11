@@ -163,7 +163,7 @@ export default function Dashboard() {
 
   const totalRevenue = useMemo(() => {
     return (sales.recent || []).reduce((sum, r) => {
-      return sum + (Number(r.total_amount || r.total || 0) || 0);
+      return sum + (Number(r.total_amount || 0) || 0);
     }, 0);
   }, [sales.recent]);
 
@@ -181,7 +181,7 @@ export default function Dashboard() {
       if (d.getFullYear() !== year) continue;
 
       const m = d.getMonth();
-      const amt = Number(r.total_amount || r.total || 0) || 0;
+      const amt = Number(r.total_amount || 0) || 0;
       totals[m] += amt;
     }
 
@@ -434,9 +434,9 @@ export default function Dashboard() {
                   <table>
                     <thead>
                       <tr>
+                        <th>Type</th>
                         <th>Item</th>
                         <th>Name</th>
-                        <th>Status</th>
                         <th>Charge</th>
                       </tr>
                     </thead>
@@ -449,16 +449,11 @@ export default function Dashboard() {
                         </tr>
                       ) : (
                         damages.map((d) => (
-                          <tr
-                            key={d.gdam_id}
-                            className="damage-row"
-                            style={{ cursor: "pointer" }}
-                            onClick={() => (window.location.href = GUEST_TARGET)}
-                          >
+                          <tr key={d.row_id || `${d.damage_source}-${d.damage_id}`}>
+                            <td>{d.damage_source === "employee" ? "Employee" : "Guest"}</td>
                             <td>{d.item_name}</td>
-                            <td>{d.guest_name || "—"}</td>
-                            <td>{d.damage_status}</td>
-                            <td>₱{Number(d.charge_amount || 0).toFixed(2)}</td>
+                            <td>{d.person_name || "—"}</td>
+                            <td>₱{Number(d.amount || 0).toFixed(2)}</td>
                           </tr>
                         ))
                       )}
@@ -477,7 +472,7 @@ export default function Dashboard() {
 
                 <div className="revenue-body">
                   <div className="revenue-amt">{fmtMoney(totalRevenue)}</div>
-                  <div className="revenue-sub">All recorded sales</div>
+                  <div className="revenue-sub">All recorded transaction revenue</div>
                 </div>
               </div>
             </div>

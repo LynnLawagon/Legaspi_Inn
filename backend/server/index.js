@@ -17,13 +17,16 @@ const transactionRoutes = require("./routes/transactions");
 const damageRoutes = require("./routes/damages");
 const purchasedRoutes = require("./routes/purchased");
 const salesRoutes = require("./routes/sales");
+const employeeDamageRoutes = require("./routes/employee_damage");
 
 const app = express();
 
-app.use(cors({
-  origin: ["http://localhost:3000"],
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: ["http://localhost:3000"],
+    credentials: true,
+  })
+);
 
 app.use(express.json());
 
@@ -44,7 +47,7 @@ app.use("/api/transactions", authRequired, transactionRoutes);
 app.use("/api/damages", authRequired, damageRoutes);
 app.use("/api/purchased", authRequired, purchasedRoutes);
 app.use("/api/sales", authRequired, salesRoutes);
-app.use("/api/employee-damage", authRequired, require("./routes/employee_damage"));
+app.use("/api/employee-damage", authRequired, employeeDamageRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`API running on http://localhost:${PORT}`));
