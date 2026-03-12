@@ -2,9 +2,7 @@ const express = require("express");
 const pool = require("../db");
 const router = express.Router();
 
-/**
- * GET /api/rooms
- */
+//GET
 router.get("/", async (req, res) => {
   try {
     const q = (req.query.q || "").trim();
@@ -45,9 +43,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-/**
- * GET /api/rooms/lookups
- */
+//GET
 router.get("/lookups", async (req, res) => {
   try {
     const [types] = await pool.query(
@@ -67,9 +63,7 @@ router.get("/lookups", async (req, res) => {
   }
 });
 
-/**
- * POST /api/rooms
- */
+//POST
 router.post("/", async (req, res) => {
   const { room_number, room_type_id, room_status_id } = req.body;
 
@@ -90,9 +84,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-/**
- * PUT /api/rooms/:id
- */
+//PUT
 router.put("/:id", async (req, res) => {
   const { room_number, room_type_id, room_status_id } = req.body;
 
@@ -110,9 +102,7 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-/**
- * DELETE /api/rooms/:id
- */
+//DELETE
 router.delete("/:id", async (req, res) => {
   try {
     const [r] = await pool.query(`DELETE FROM rooms WHERE room_id=?`, [Number(req.params.id)]);

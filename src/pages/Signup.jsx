@@ -1,4 +1,4 @@
-// src/pages/Signup.jsx
+
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { apiFetch } from "../lib/api";
@@ -87,7 +87,7 @@ export default function Signup() {
           username: username.trim(),
           password,
           confirmPassword,
-          gender_id: Number(genderId), // sent but backend will ignore if not stored
+          gender_id: Number(genderId), 
           role_id: Number(roleId),
           shift_start: shiftStart,
           shift_end: shiftEnd,

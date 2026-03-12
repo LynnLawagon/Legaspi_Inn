@@ -17,8 +17,7 @@ function calculateDamageFee(itemValue, damageStatusId) {
   return Number((Number(itemValue || 0) * rate).toFixed(2));
 }
 
-// GET /api/damages?limit=50
-// Dashboard use: return BOTH guest and employee damages
+// GET 
 router.get("/", async (req, res) => {
   try {
     const limit = Number(req.query.limit || 50);
@@ -82,7 +81,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET /api/damages/transaction/:transId
+// GET 
 router.get("/transaction/:transId", async (req, res) => {
   try {
     const transId = Number(req.params.transId);
@@ -115,7 +114,7 @@ router.get("/transaction/:transId", async (req, res) => {
   }
 });
 
-// GET /api/damages/lookups
+// GET 
 router.get("/lookups", async (req, res) => {
   try {
     const [transactions] = await pool.query(`
@@ -152,7 +151,7 @@ router.get("/lookups", async (req, res) => {
   }
 });
 
-// POST /api/damages
+// POST 
 router.post("/", async (req, res) => {
   const { trans_id, inv_id, damage_status_id, date_reported } = req.body;
 
@@ -212,7 +211,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PUT /api/damages/:id
+// PUT 
 router.put("/:id", async (req, res) => {
   const { trans_id, inv_id, damage_status_id, date_reported } = req.body;
 
@@ -261,7 +260,7 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/damages/:id
+// DELETE 
 router.delete("/:id", async (req, res) => {
   try {
     const [r] = await pool.query(

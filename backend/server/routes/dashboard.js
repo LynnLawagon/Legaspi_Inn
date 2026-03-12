@@ -3,9 +3,7 @@ const pool = require("../db");
 
 const router = express.Router();
 
-/**
- * GET /api/dashboard/rooms
- */
+//GET
 router.get("/rooms", async (req, res) => {
   try {
     const [totalRows] = await pool.query(

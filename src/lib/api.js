@@ -1,4 +1,3 @@
-// src/lib/api.js
 import { getSession } from "../utils/auth";
 
 export const API_BASE = "/api";

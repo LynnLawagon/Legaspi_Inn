@@ -3,7 +3,7 @@ const pool = require("../db");
 
 const router = express.Router();
 
-// GET /api/meta/genders (PUBLIC)
+// GET
 router.get("/genders", async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -19,7 +19,7 @@ router.get("/genders", async (req, res) => {
   }
 });
 
-// GET /api/meta/roles (PUBLIC)
+// GET 
 router.get("/roles", async (req, res) => {
   try {
     const [rows] = await pool.query(

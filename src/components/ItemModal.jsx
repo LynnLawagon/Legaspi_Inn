@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import "./ItemModal.css";
 
 function nextId(existingIds = []) {
-  // existingIds like ["I0001","I0002"]
   let max = 0;
   for (const id of existingIds) {
     const n = parseInt(String(id).replace(/^I/i, ""), 10);
@@ -23,13 +22,11 @@ export default function ItemModal({ open, onClose, existingIds = [], onSave }) {
     standard_cost: "",
   });
 
-  // update inv_id when modal opens / ids change
   useEffect(() => {
     if (!open) return;
     setForm((prev) => ({ ...prev, inv_id: invId }));
   }, [open, invId]);
 
-  // ESC to close
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => e.key === "Escape" && onClose?.();

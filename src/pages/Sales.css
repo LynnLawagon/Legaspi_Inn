@@ -7,6 +7,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  gap: 14px;
 }
 
 .sales-header{
@@ -16,13 +17,13 @@
 .sales-card{
   flex: 1 1 auto;
   min-height: 0;
-  margin-top: 18px;
   width: 100%;
   background: rgba(217,217,217,0.40);
   border-radius: 22px;
-  padding: 18px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .sales-table-wrap{
@@ -30,10 +31,11 @@
   min-height: 0;
   overflow: auto;
   border-radius: 18px;
+  background: rgba(244,228,209,0.30);
 }
 
 .sales-kpis{
-  margin-top: 14px;
+  margin-top: 12px;
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
@@ -46,12 +48,13 @@
   padding: 8px 12px;
   border-radius: 999px;
   border: 2px solid #2C0735;
-  background: rgba(244,228,209,0.85);
+  background: rgba(244,228,209,0.92);
   color: #2C0735;
+  line-height: 1;
 }
 
 .sales-chip.ghost{
-  background: transparent;
+  background: rgba(255,255,255,0.18);
 }
 
 .sales-note{
@@ -63,21 +66,25 @@
 
 .sales-table{
   width: 100%;
-  min-width: 1120px;
+  min-width: 1040px;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
 }
 
 .sales-table thead th{
-  padding: 18px;
-  font-size: 16px;
-  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 16px 14px;
+  font-size: 14px;
+  font-weight: 800;
   color: #2C0735;
-  background: rgba(226,226,226,0.45);
+  background: rgba(226,226,226,0.92);
   text-align: center;
   vertical-align: middle;
   white-space: nowrap;
+  border-bottom: 2px solid rgba(44,7,53,0.10);
 }
 
 .sales-table thead th:first-child{
@@ -89,16 +96,21 @@
 }
 
 .sales-table tbody td{
-  padding: 22px 18px;
-  font-size: 16px;
+  padding: 16px 14px;
+  font-size: 14px;
+  font-weight: 700;
   color: #2C0735;
-  background: rgba(217,217,217,0.20);
-  border-bottom: 2px solid #F4E4D1;
+  background: rgba(217,217,217,0.14);
+  border-bottom: 1px solid rgba(244,228,209,0.95);
   text-align: center;
   vertical-align: middle;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.sales-table tbody tr:hover td{
+  background: rgba(244,228,209,0.38);
 }
 
 .sales-table tbody tr:last-child td{
@@ -125,6 +137,7 @@
 
 .sales-view{
   height: 34px;
+  min-width: 78px;
   padding: 0 16px;
   border: none;
   border-radius: 999px;
@@ -132,15 +145,17 @@
   color: #2C0735;
   font-weight: 900;
   cursor: pointer;
+  transition: background 0.18s ease, transform 0.18s ease;
 }
 
 .sales-view:hover{
   background: rgba(44,7,53,0.18);
+  transform: translateY(-1px);
 }
 
 .sales-empty{
   text-align: center;
-  padding: 18px 12px;
+  padding: 24px 12px;
   font-weight: 800;
   color: rgba(44,7,53,0.75);
 }
@@ -149,7 +164,7 @@
 .sales-page .page-search .search-wrap{
   height: 40px;
   padding: 0 16px;
-  width: min(560px, 55vw);
+  width: min(520px, 50vw);
   box-sizing: border-box;
 }
 
@@ -157,24 +172,92 @@
   height: 100%;
 }
 
-@media (max-width: 900px){
+/* optional nicer widths for each visible column */
+.sales-table th:nth-child(1),
+.sales-table td:nth-child(1){
+  width: 18%;
+}
+
+.sales-table th:nth-child(2),
+.sales-table td:nth-child(2){
+  width: 9%;
+}
+
+.sales-table th:nth-child(3),
+.sales-table td:nth-child(3){
+  width: 14%;
+}
+
+.sales-table th:nth-child(4),
+.sales-table td:nth-child(4){
+  width: 12%;
+}
+
+.sales-table th:nth-child(5),
+.sales-table td:nth-child(5){
+  width: 8%;
+}
+
+.sales-table th:nth-child(6),
+.sales-table td:nth-child(6),
+.sales-table th:nth-child(7),
+.sales-table td:nth-child(7),
+.sales-table th:nth-child(8),
+.sales-table td:nth-child(8),
+.sales-table th:nth-child(9),
+.sales-table td:nth-child(9){
+  width: 11%;
+}
+
+.sales-table th:nth-child(10),
+.sales-table td:nth-child(10){
+  width: 8%;
+}
+
+@media (max-width: 1100px){
+  .sales-page .page-search .search-wrap{
+    width: 100%;
+  }
+
   .sales-note{
     margin-left: 0;
     width: 100%;
   }
+}
 
-  .sales-page .page-search{
-    width: 100%;
+@media (max-width: 900px){
+  .sales-kpis{
+    gap: 8px;
   }
 
-  .sales-page .page-search .search-wrap{
-    width: 100%;
+  .sales-chip{
+    font-size: 11px;
+    padding: 7px 10px;
+  }
+
+  .sales-card{
+    padding: 10px;
+  }
+
+  .sales-table{
+    min-width: 980px;
+  }
+
+  .sales-table thead th{
+    font-size: 13px;
+    padding: 14px 12px;
+  }
+
+  .sales-table tbody td{
+    font-size: 13px;
+    padding: 14px 12px;
   }
 }
 
 /* =========================================================
    SALES DETAILS MODAL
    ========================================================= */
+
 .sd-overlay{
   position: fixed;
   inset: 0;
@@ -352,4 +435,25 @@
   color: #F4E4D1;
   font-weight: 900;
   cursor: pointer;
+}
+
+@media (max-width: 760px){
+  .sd-overlay{
+    padding: 12px;
+  }
+
+  .sd-card{
+    width: 100%;
+    max-height: 92vh;
+    padding: 14px;
+  }
+
+  .sd-head{
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sd-kpis{
+    justify-content: flex-start;
+  }
 }

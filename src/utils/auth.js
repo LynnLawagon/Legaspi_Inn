@@ -1,4 +1,3 @@
-// src/utils/auth.js
 const KEY = "legaspi_session";
 
 export function setSession(data) {

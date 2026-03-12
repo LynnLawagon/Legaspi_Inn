@@ -17,7 +17,7 @@ function calculateDamageFee(itemValue, damageStatusId) {
   return Number((Number(itemValue || 0) * rate).toFixed(2));
 }
 
-// GET /api/employee-damage?user_id=2&limit=50
+// GET 
 router.get("/", async (req, res) => {
   try {
     const limit = Number(req.query.limit || 50);
@@ -54,7 +54,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET /api/employee-damage/lookups
+// GET
 router.get("/lookups", async (req, res) => {
   try {
     const [users] = await pool.query(`
@@ -86,7 +86,7 @@ router.get("/lookups", async (req, res) => {
   }
 });
 
-// POST /api/employee-damage
+// POST 
 router.post("/", async (req, res) => {
   const { user_id, inv_id, damage_status_id, date_reported } = req.body;
 
@@ -139,7 +139,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PUT /api/employee-damage/:id
+// PUT 
 router.put("/:id", async (req, res) => {
   const { user_id, inv_id, damage_status_id, date_reported } = req.body;
 
@@ -186,7 +186,7 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/employee-damage/:id
+// DELETE
 router.delete("/:id", async (req, res) => {
   try {
     const [r] = await pool.query(

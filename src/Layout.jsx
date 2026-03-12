@@ -1,4 +1,3 @@
-// src/Layout.jsx
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import "./App.css";
@@ -10,11 +9,9 @@ export default function Layout() {
   const [userOpen, setUserOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
 
-  // ✅ responsive sidebar (collapse only on small screens)
   const [isSmall, setIsSmall] = useState(false);
-  const [sbOpen, setSbOpen] = useState(true); // desktop default open
+  const [sbOpen, setSbOpen] = useState(true); 
 
-  // ✅ badge count (temporary)
   const [salesCount] = useState(0);
 
   const navigate = useNavigate();
@@ -33,11 +30,9 @@ export default function Layout() {
       const small = window.innerWidth <= 720;
       setIsSmall(small);
 
-      // desktop: always open
       if (!small) {
         setSbOpen(true);
       } else {
-        // small: default collapsed
         setSbOpen(false);
       }
     };
@@ -47,9 +42,6 @@ export default function Layout() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // ✅ sidebar class:
-  // desktop => always open
-  // small => open/collapsed depends on sbOpen
   const sidebarClass = !isSmall
     ? "sidebar open"
     : sbOpen
@@ -64,7 +56,6 @@ export default function Layout() {
             <img src="/assets/images/logo.png" alt="Legaspi Inn Logo" />
           </div>
 
-          {/* ✅ ALWAYS render button (CSS will show it only on small screens) */}
           <button
             type="button"
             className="sb-toggle"

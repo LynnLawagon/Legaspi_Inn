@@ -1,4 +1,3 @@
-// src/lib/api.js
 import { getSession } from "../utils/auth";
 
 export const API_BASE = "/api";
@@ -12,7 +11,6 @@ export async function apiFetch(path, options = {}) {
     ...(options.headers || {}),
   };
 
-  // ✅ only add token if naa
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const res = await fetch(`${API_BASE}${path}`, {
@@ -20,7 +18,6 @@ export async function apiFetch(path, options = {}) {
     headers,
   });
 
-  // parse json if possible
   let data = null;
   const ct = res.headers.get("content-type") || "";
   if (ct.includes("application/json")) {

@@ -2,21 +2,12 @@ const express = require("express");
 const pool = require("../db");
 const router = express.Router();
 
-/**
- * RULE:
- * qty = 0 => Out of Stock
- * qty < 50 => Low Stock
- * qty >= 50 => Available
- */
-
 function getThreshold(req) {
   const t = Number(req.query.threshold ?? 50);
   return Number.isFinite(t) && t >= 1 ? t : 50;
 }
 
-/**
- * GET /api/inventory?q=&threshold=50
- */
+//GET
 router.get("/", async (req, res) => {
   try {
     const q = (req.query.q || "").trim();
@@ -71,9 +62,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-/**
- * GET /api/inventory/lookups
- */
+//GET
 router.get("/lookups", async (req, res) => {
   try {
     const [categories] = await pool.query(
@@ -102,9 +91,7 @@ router.get("/lookups", async (req, res) => {
   }
 });
 
-/**
- * GET /api/inventory/low-stock?limit=50&threshold=50
- */
+//GET
 router.get("/low-stock", async (req, res) => {
   try {
     const limit = Math.max(1, Number(req.query.limit || 10));
@@ -137,9 +124,7 @@ router.get("/low-stock", async (req, res) => {
   }
 });
 
-/**
- * GET /api/inventory/summary?threshold=50
- */
+//GET
 router.get("/summary", async (req, res) => {
   try {
     const threshold = getThreshold(req);
@@ -178,9 +163,7 @@ router.get("/summary", async (req, res) => {
   }
 });
 
-/**
- * POST /api/inventory
- */
+//POST
 router.post("/", async (req, res) => {
   const {
     item_name,
@@ -235,9 +218,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-/**
- * PUT /api/inventory/:id
- */
+//PUT
 router.put("/:id", async (req, res) => {
   const {
     item_name,
@@ -291,9 +272,7 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-/**
- * DELETE /api/inventory/:id
- */
+//DELETE
 router.delete("/:id", async (req, res) => {
   try {
     const [r] = await pool.query(

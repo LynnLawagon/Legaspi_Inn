@@ -1,4 +1,4 @@
-// src/App.jsx
+
 import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./Layout";
 
@@ -48,7 +48,6 @@ export default function App() {
         <Route path="/transactions" element={<Transactions />} />
         <Route path="/guests" element={<Guest />} />
 
-        {/* ✅ NOW WORKS */}
         <Route path="/sales" element={<Sales />} />
       </Route>
 

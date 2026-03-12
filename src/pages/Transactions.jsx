@@ -27,6 +27,22 @@ function nowLocalIso() {
   return local.toISOString().slice(0, 16);
 }
 
+function computeRoomHours(checkin, checkout) {
+  if (!checkin || !checkout) return 0;
+  const ms = new Date(checkout) - new Date(checkin);
+  if (!Number.isFinite(ms) || ms <= 0) return 0;
+  return Math.max(1, Math.ceil(ms / (1000 * 60 * 60)));
+}
+
+function calculateRoomRate(hours) {
+  if (!hours || hours <= 0) return 0;
+  if (hours <= 3) return 80;
+  if (hours <= 8) return 150;
+  if (hours <= 12) return 200;
+  if (hours <= 24) return 200;
+  return 200 + (hours - 24) * 20;
+}
+
 const emptyForm = {
   guest_id: "",
   user_id: "",
@@ -118,10 +134,27 @@ export default function Transactions() {
     );
   }, [search, transactions]);
 
+  const computedHours = useMemo(
+    () => computeRoomHours(txForm.checkin, txForm.checkout),
+    [txForm.checkin, txForm.checkout]
+  );
+
+  const computedRate = useMemo(
+    () => calculateRoomRate(computedHours),
+    [computedHours]
+  );
+
   function openTxModal(tx = null) {
     if (!tx) {
       setEditingId(null);
-      setTxForm({ ...emptyForm, checkin: nowLocalIso(), checkout: nowLocalIso() });
+      const checkin = nowLocalIso();
+      const checkout = nowLocalIso();
+      setTxForm({
+        ...emptyForm,
+        checkin,
+        checkout,
+        actual_rate_charged: String(calculateRoomRate(computeRoomHours(checkin, checkout))),
+      });
     } else {
       setEditingId(tx.trans_id);
       setTxForm({
@@ -172,9 +205,6 @@ export default function Transactions() {
         trans_status_id: Number(txForm.trans_status_id) || 1,
         checkin: txForm.checkin || null,
         checkout: txForm.checkout || null,
-        actual_rate_charged: txForm.actual_rate_charged
-          ? Number(txForm.actual_rate_charged)
-          : null,
       };
 
       if (editingId) {
@@ -238,11 +268,10 @@ export default function Transactions() {
   }
 
   function handleRoomChange(room_id) {
-    const room = lookups.rooms.find((r) => String(r.room_id) === String(room_id));
     setTxForm((p) => ({
       ...p,
       room_id,
-      actual_rate_charged: room?.base_rate ? String(room.base_rate) : p.actual_rate_charged,
+      actual_rate_charged: String(calculateRoomRate(computeRoomHours(p.checkin, p.checkout))),
     }));
   }
 
@@ -508,7 +537,7 @@ export default function Transactions() {
                   <option value="">Select room</option>
                   {lookups.rooms.map((r) => (
                     <option key={r.room_id} value={r.room_id}>
-                      {r.room_number} — {r.type_name} (₱{r.base_rate})
+                      {r.room_number} — {r.type_name}
                     </option>
                   ))}
                 </select>
@@ -532,7 +561,17 @@ export default function Transactions() {
                 <input
                   type="datetime-local"
                   value={txForm.checkin}
-                  onChange={(e) => setTxForm((p) => ({ ...p, checkin: e.target.value }))}
+                  onChange={(e) =>
+                    setTxForm((p) => {
+                      const next = { ...p, checkin: e.target.value };
+                      return {
+                        ...next,
+                        actual_rate_charged: String(
+                          calculateRoomRate(computeRoomHours(next.checkin, next.checkout))
+                        ),
+                      };
+                    })
+                  }
                   required
                 />
               </label>
@@ -542,22 +581,32 @@ export default function Transactions() {
                 <input
                   type="datetime-local"
                   value={txForm.checkout}
-                  onChange={(e) => setTxForm((p) => ({ ...p, checkout: e.target.value }))}
+                  onChange={(e) =>
+                    setTxForm((p) => {
+                      const next = { ...p, checkout: e.target.value };
+                      return {
+                        ...next,
+                        actual_rate_charged: String(
+                          calculateRoomRate(computeRoomHours(next.checkin, next.checkout))
+                        ),
+                      };
+                    })
+                  }
                   required
                 />
               </label>
 
               <label className="field">
+                <span>Hours</span>
+                <input type="text" value={computedHours ? `${computedHours} hour(s)` : ""} readOnly />
+              </label>
+
+              <label className="field">
                 <span>Amount (₱)</span>
                 <input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={txForm.actual_rate_charged}
-                  onChange={(e) =>
-                    setTxForm((p) => ({ ...p, actual_rate_charged: e.target.value }))
-                  }
-                  required
+                  type="text"
+                  value={computedRate ? `₱${Number(computedRate).toFixed(2)}` : ""}
+                  readOnly
                 />
               </label>
             </div>

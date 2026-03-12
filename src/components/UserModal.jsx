@@ -1,4 +1,3 @@
-// src/components/UserModal.jsx
 import { useEffect, useMemo, useState } from "react";
 import EmployeeDamageModal from "./EmployeeDamageModal";
 import { apiFetch } from "../lib/api";
@@ -23,11 +22,9 @@ export default function UserModal({ open, onClose, onLogout, user }) {
     shift_end: user?.shift_end ?? "17:00",
   });
 
-  // (your existing damageRows demo; keep if you want)
   const [damageRows, setDamageRows] = useState(user?.employee_damages ?? []);
   const [invItems, setInvItems] = useState([]);
 
-  // lock bg scroll
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -35,7 +32,6 @@ export default function UserModal({ open, onClose, onLogout, user }) {
     return () => (document.body.style.overflow = prev);
   }, [open]);
 
-  // load roles + latest user info when modal opens
   useEffect(() => {
     if (!open || !userId) return;
 
@@ -76,7 +72,6 @@ export default function UserModal({ open, onClose, onLogout, user }) {
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-    // eslint-disable-next-line
   }, [open]);
 
   function handleClose() {
@@ -112,7 +107,6 @@ export default function UserModal({ open, onClose, onLogout, user }) {
 
       const updatedUser = resp?.user;
 
-      // ✅ update saved session so sidebar + app reflect changes
       const session = getSession();
       if (session?.token && updatedUser) {
         setSession({
@@ -134,18 +128,18 @@ export default function UserModal({ open, onClose, onLogout, user }) {
   }
 
   useEffect(() => {
-  if (!openEDM) return;
+    if (!openEDM) return;
 
-  (async () => {
-    try {
-      const rows = await apiFetch("/inventory");
-      setInvItems(Array.isArray(rows) ? rows : []);
-    } catch (e) {
-      console.error("Failed to load inventory", e);
-      setInvItems([]);
-    }
-  })();
-}, [openEDM]);  
+    (async () => {
+      try {
+        const rows = await apiFetch("/inventory");
+        setInvItems(Array.isArray(rows) ? rows : []);
+      } catch (e) {
+        console.error("Failed to load inventory", e);
+        setInvItems([]);
+      }
+    })();
+  }, [openEDM]);
 
   const roleName =
     roles.find((r) => Number(r.role_id) === Number(form.role_id))?.role_name ??
@@ -168,19 +162,15 @@ export default function UserModal({ open, onClose, onLogout, user }) {
             ✕
           </button>
 
-          {/* LEFT */}
           <div className="modal-left">
             <div className="modal-avatar">
               <img src="/assets/images/user.png" alt="User" />
             </div>
 
-            {/* ✅ username visible */}
             <h2>{form.username || "User"}</h2>
 
-            {/* ✅ still show id */}
             <p className="um-sub">{form.user_id}</p>
 
-            {/* ✅ role visible */}
             <p className="um-sub muted">{roleName}</p>
 
             <div className="um-left-actions">
@@ -211,7 +201,6 @@ export default function UserModal({ open, onClose, onLogout, user }) {
             </div>
           </div>
 
-          {/* RIGHT */}
           <div className="modal-right">
             <form id="userForm" onSubmit={handleSubmit}>
               <div className="um-section-head">
@@ -304,13 +293,13 @@ export default function UserModal({ open, onClose, onLogout, user }) {
         </div>
       </div>
 
-<EmployeeDamageModal
-  open={openEDM}
-  onClose={() => setOpenEDM(false)}
-  user={user ?? form}
-  damageRows={damageRows}
-  items={invItems}
-/>
+      <EmployeeDamageModal
+        open={openEDM}
+        onClose={() => setOpenEDM(false)}
+        user={user ?? form}
+        damageRows={damageRows}
+        items={invItems}
+      />
     </>
   );
 }

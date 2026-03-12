@@ -32,7 +32,7 @@ export default function Guest() {
     const s = q.trim().toLowerCase();
     if (!s) return guests;
     return guests.filter((x) =>
-      `${x.guest_name || ""} ${x.contact || ""} ${x.gender_name || ""} ${x.dob || ""}`
+      `${x.guest_name || ""} ${x.contact || ""} ${x.gender_name || ""} ${x.dob || ""} ${x.age ?? ""}`
         .toLowerCase()
         .includes(s)
     );
@@ -76,16 +76,12 @@ export default function Guest() {
     const dob = window.prompt("Date of Birth (YYYY-MM-DD):", "2000-01-01");
     if (!dob) return;
 
-    const ageStr = window.prompt("Age:", "");
-    const age = ageStr?.trim() ? Number(ageStr) : null;
-
     try {
       await apiFetch("/guests", {
         method: "POST",
         body: JSON.stringify({
           guest_name: guest_name.trim(),
           contact: contact.trim(),
-          age,
           gender_id: Number(gender_id),
           dob,
         }),
@@ -109,16 +105,12 @@ export default function Guest() {
     const dob = window.prompt("Date of Birth (YYYY-MM-DD):", g.dob);
     if (!dob) return;
 
-    const ageStr = window.prompt("Age:", g.age ?? "");
-    const age = ageStr?.trim() ? Number(ageStr) : null;
-
     try {
       await apiFetch(`/guests/${g.guest_id}`, {
         method: "PUT",
         body: JSON.stringify({
           guest_name: guest_name.trim(),
           contact: contact.trim(),
-          age,
           gender_id: Number(gender_id),
           dob,
         }),
@@ -229,6 +221,7 @@ export default function Guest() {
                 <th>Name</th>
                 <th>Contact</th>
                 <th>Gender</th>
+                <th>Age</th>
                 <th>Date of Birth</th>
                 <th className="col-actions">...</th>
               </tr>
@@ -237,7 +230,7 @@ export default function Guest() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: "center", padding: 18, opacity: 0.7 }}>
+                  <td colSpan={6} style={{ textAlign: "center", padding: 18, opacity: 0.7 }}>
                     Loading...
                   </td>
                 </tr>
@@ -249,6 +242,7 @@ export default function Guest() {
                     <td>{g.guest_name}</td>
                     <td>{g.contact}</td>
                     <td>{g.gender_name}</td>
+                    <td>{g.age ?? "—"}</td>
                     <td>{g.dob}</td>
                     <td className="td-action">
                       <button
@@ -274,7 +268,7 @@ export default function Guest() {
 
               {!loading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: "center", padding: 18, opacity: 0.7 }}>
+                  <td colSpan={6} style={{ textAlign: "center", padding: 18, opacity: 0.7 }}>
                     No guests found
                   </td>
                 </tr>

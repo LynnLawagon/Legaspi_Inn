@@ -2,21 +2,19 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Auth.css";
 
-const API_BASE = "/api"; // works with Vite proxy
+const API_BASE = "/api"; 
 
 export default function Auth() {
   const nav = useNavigate();
 
-  const [mode, setMode] = useState("signup"); // "login" | "signup"
+  const [mode, setMode] = useState("signup"); 
   const [error, setError] = useState("");
   const [loadingMeta, setLoadingMeta] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // meta
   const [genders, setGenders] = useState([]);
   const [roles, setRoles] = useState([]);
 
-  // form fields
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -24,10 +22,9 @@ export default function Auth() {
   const [genderId, setGenderId] = useState("");
   const [roleId, setRoleId] = useState("");
 
-  const [shiftStart, setShiftStart] = useState(""); // "HH:MM"
+  const [shiftStart, setShiftStart] = useState(""); 
   const [shiftEnd, setShiftEnd] = useState("");
 
-  // Fetch genders + roles when in signup mode (or on page load)
   useEffect(() => {
     let alive = true;
 
@@ -51,7 +48,6 @@ export default function Auth() {
         setGenders(Array.isArray(gData) ? gData : []);
         setRoles(Array.isArray(rData) ? rData : []);
 
-        // set defaults (optional)
         if (!genderId && Array.isArray(gData) && gData[0]) setGenderId(String(gData[0].gender_id));
         if (!roleId && Array.isArray(rData) && rData[0]) setRoleId(String(rData[0].role_id));
       } catch (e) {
@@ -67,7 +63,6 @@ export default function Auth() {
     return () => {
       alive = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function resetFormErrorsOnly() {
@@ -124,7 +119,6 @@ export default function Auth() {
           return;
         }
 
-        // after success, go to login mode
         setMode("login");
         setPassword("");
         setConfirmPassword("");
@@ -145,7 +139,6 @@ export default function Auth() {
         return;
       }
 
-      // EXPECTED: { token: "...", user: {...} }
       if (data?.token) localStorage.setItem("token", data.token);
       if (data?.user) localStorage.setItem("user", JSON.stringify(data.user));
 

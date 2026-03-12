@@ -2,9 +2,7 @@ const express = require("express");
 const pool = require("../db");
 const router = express.Router();
 
-/**
- * GET /api/guests?q=
- */
+//GET
 router.get("/", async (req, res) => {
   try {
     const q = (req.query.q || "").trim();
@@ -14,7 +12,7 @@ router.get("/", async (req, res) => {
         g.guest_id,
         g.guest_name,
         g.contact,
-        g.age,
+        TIMESTAMPDIFF(YEAR, g.dob, CURDATE()) AS age,
         g.gender_id,
         gn.gender_name,
         DATE_FORMAT(g.dob, '%Y-%m-%d') AS dob
@@ -30,7 +28,7 @@ router.get("/", async (req, res) => {
            OR g.contact LIKE ?
            OR gn.gender_name LIKE ?
            OR DATE_FORMAT(g.dob, '%Y-%m-%d') LIKE ?
-           OR CAST(g.age AS CHAR) LIKE ?
+           OR CAST(TIMESTAMPDIFF(YEAR, g.dob, CURDATE()) AS CHAR) LIKE ?
       `;
       params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
     }
@@ -45,9 +43,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-/**
- * GET /api/guests/lookups
- */
+//GET
 router.get("/lookups", async (req, res) => {
   try {
     const [genders] = await pool.query(
@@ -61,11 +57,9 @@ router.get("/lookups", async (req, res) => {
   }
 });
 
-/**
- * POST /api/guests
- */
+//POST
 router.post("/", async (req, res) => {
-  const { guest_name, contact, age, gender_id, dob } = req.body;
+  const { guest_name, contact, gender_id, dob } = req.body;
 
   if (!guest_name || !contact || !gender_id || !dob) {
     return res.status(400).json({ message: "guest_name, contact, gender_id, dob are required" });
@@ -77,7 +71,7 @@ router.post("/", async (req, res) => {
       [
         String(guest_name).trim(),
         String(contact).trim(),
-        age == null || age === "" ? null : Number(age),
+        null,
         Number(gender_id),
         dob,
       ]
@@ -90,11 +84,9 @@ router.post("/", async (req, res) => {
   }
 });
 
-/**
- * PUT /api/guests/:id
- */
+//PUT
 router.put("/:id", async (req, res) => {
-  const { guest_name, contact, age, gender_id, dob } = req.body;
+  const { guest_name, contact, gender_id, dob } = req.body;
 
   try {
     const [r] = await pool.query(
@@ -102,7 +94,7 @@ router.put("/:id", async (req, res) => {
       [
         String(guest_name).trim(),
         String(contact).trim(),
-        age == null || age === "" ? null : Number(age),
+        null,
         Number(gender_id),
         dob,
         Number(req.params.id),
@@ -117,9 +109,7 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-/**
- * DELETE /api/guests/:id
- */
+//DELETE
 router.delete("/:id", async (req, res) => {
   try {
     const [r] = await pool.query(`DELETE FROM guests WHERE guest_id=?`, [Number(req.params.id)]);

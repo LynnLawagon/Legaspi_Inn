@@ -2,9 +2,7 @@ const express = require("express");
 const pool = require("../db");
 const router = express.Router();
 
-/**
- * GET /api/purchased/by-transaction/:transId
- */
+//GET
 router.get("/by-transaction/:transId", async (req, res) => {
   try {
     const transId = Number(req.params.transId);
@@ -33,9 +31,7 @@ router.get("/by-transaction/:transId", async (req, res) => {
   }
 });
 
-/**
- * POST /api/purchased
- */
+//POST
 router.post("/", async (req, res) => {
   const { trans_id, user_id, inv_id, quantity, unit_cost } = req.body;
 

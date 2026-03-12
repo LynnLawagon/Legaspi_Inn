@@ -5,7 +5,7 @@ const pool = require("../db");
 
 const router = express.Router();
 
-// SIGNUP  POST /api/auth/signup
+// SIGNUP  POST 
 router.post("/signup", async (req, res) => {
   const {
     username,
@@ -59,7 +59,7 @@ router.post("/signup", async (req, res) => {
   }
 });
 
-// LOGIN  POST /api/auth/login
+// LOGIN  POST 
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
 

@@ -1,4 +1,3 @@
-//src/components/CalculatorModal.jsx
 import { useEffect, useMemo, useState } from "react";
 import "./CalculatorModal.css";
 
@@ -8,17 +7,14 @@ export default function CalculatorModal({ open, onClose }) {
   const displayValue = useMemo(() => (expr ? expr : "0"), [expr]);
 
   const safeEval = (s) => {
-    // allow only numbers/operators/decimals/parentheses/percent
     if (!/^[0-9+\-*/().%\s]+$/.test(s)) return "Error";
 
-    // percent handling: 50% => 0.5
     const normalized = s.replace(
       /(\d+(\.\d+)?)%/g,
       (_, n) => String(Number(n) / 100)
     );
 
     try {
-      // eslint-disable-next-line no-new-func
       const result = Function(`"use strict"; return (${normalized})`)();
       if (result === Infinity || Number.isNaN(result)) return "Error";
       return String(result);
@@ -34,7 +30,6 @@ export default function CalculatorModal({ open, onClose }) {
     setExpr((prev) => prev + key);
   };
 
-  // ESC to close (only when open)
   useEffect(() => {
     if (!open) return;
 
@@ -54,7 +49,7 @@ export default function CalculatorModal({ open, onClose }) {
       id="calcOverlay"
       aria-hidden="false"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose?.(); // click outside
+        if (e.target === e.currentTarget) onClose?.(); 
       }}
     >
       <div className="calc" role="dialog" aria-modal="true" aria-label="Calculator">

@@ -4,10 +4,12 @@ const pool = require("../db");
 const router = express.Router();
 
 function calculateRoomRate(hours) {
+  if (hours <= 0) return 0;
   if (hours <= 3) return 80;
   if (hours <= 8) return 150;
   if (hours <= 12) return 200;
-  return 200 + 20 * (hours - 12);
+  if (hours <= 24) return 200;
+  return 200 + 20 * (hours - 24);
 }
 
 function computeRoomHours(checkin, checkout) {
@@ -16,9 +18,7 @@ function computeRoomHours(checkin, checkout) {
   return Math.max(1, Math.ceil(ms / (1000 * 60 * 60)));
 }
 
-/**
- * GET /api/transactions/lookups
- */
+//GET
 router.get("/lookups", async (req, res) => {
   try {
     const [guests] = await pool.query(`
@@ -68,9 +68,7 @@ router.get("/lookups", async (req, res) => {
   }
 });
 
-/**
- * GET /api/transactions
- */
+//GET
 router.get("/", async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -88,10 +86,14 @@ router.get("/", async (req, res) => {
         t.date_created,
         t.trans_status_id,
         ts.status_name AS transaction_status,
-        TIMESTAMPDIFF(HOUR, t.checkin, t.checkout) AS room_hours,
+        GREATEST(1, TIMESTAMPDIFF(HOUR, t.checkin, t.checkout)) AS room_hours,
         COALESCE(gd.total_guest_damage, 0) AS total_damage,
         COALESCE(s.total_sales, 0) AS sales_total,
-        (COALESCE(t.actual_rate_charged, 0) + COALESCE(gd.total_guest_damage, 0) + COALESCE(s.total_sales, 0)) AS total_bill
+        (
+          COALESCE(t.actual_rate_charged, 0)
+          + COALESCE(gd.total_guest_damage, 0)
+          + COALESCE(s.total_sales, 0)
+        ) AS total_bill
       FROM transactions t
       LEFT JOIN guests g ON g.guest_id = t.guest_id
       LEFT JOIN users u ON u.user_id = t.user_id
@@ -121,9 +123,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-/**
- * POST /api/transactions
- */
+//POST
 router.post("/", async (req, res) => {
   const {
     guest_id,
@@ -215,9 +215,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-/**
- * PUT /api/transactions/:id
- */
+//PUT
 router.put("/:id", async (req, res) => {
   const {
     guest_id,
@@ -255,7 +253,11 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ message: "Transaction not found" });
     }
 
-    res.json({ updated: r.affectedRows });
+    res.json({
+      updated: r.affectedRows,
+      room_hours: roomHours,
+      room_cost: roomCost,
+    });
   } catch (e) {
     console.error("transactions update error:", e);
     res.status(500).json({
@@ -265,9 +267,7 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-/**
- * DELETE /api/transactions/:id
- */
+//DELETE
 router.delete("/:id", async (req, res) => {
   const id = Number(req.params.id);
   const conn = await pool.getConnection();

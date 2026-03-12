@@ -5,7 +5,7 @@ const { authRequired } = require("../middleware/auth");
 
 const router = express.Router();
 
-// GET /api/users/:id
+// GET 
 router.get("/:id", authRequired, async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -27,7 +27,7 @@ router.get("/:id", authRequired, async (req, res) => {
   }
 });
 
-// PUT /api/users/:id
+// PUT 
 router.put("/:id", authRequired, async (req, res) => {
   const { username, password, role_id, shift_start, shift_end } = req.body;
 

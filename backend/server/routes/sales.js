@@ -3,11 +3,7 @@ const pool = require("../db");
 
 const router = express.Router();
 
-/**
- * POST /api/sales
- * Save additional purchased items for a transaction.
- * This remains the source for line-item guest purchases.
- */
+//POST
 router.post("/", async (req, res) => {
   const { trans_id, user_id, items } = req.body;
 
@@ -77,10 +73,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-/**
- * GET /api/sales/summary
- * Sales page/dashboard summary is now derived from transactions.
- */
+//GET
 router.get("/summary", async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -124,10 +117,7 @@ router.get("/summary", async (req, res) => {
   }
 });
 
-/**
- * GET /api/sales?from=YYYY-MM-DD&to=YYYY-MM-DD&limit=50
- * Sales listing is now transaction-based.
- */
+//GET
 router.get("/", async (req, res) => {
   try {
     const { from, to } = req.query;
@@ -204,10 +194,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-/**
- * GET /api/sales/transaction/:transId/details
- * Returns all purchased line items for a transaction.
- */
+//GET
 router.get("/transaction/:transId/details", async (req, res) => {
   try {
     const transId = Number(req.params.transId);

@@ -71,7 +71,6 @@ export default function Sales() {
 
   useEffect(() => {
     loadSales();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = useMemo(() => {
@@ -79,7 +78,7 @@ export default function Sales() {
     if (!s) return rows;
 
     return rows.filter((r) =>
-      `${r.guest_name || ""} ${r.room_number || ""} ${r.username || ""} ${r.trans_id || ""}`
+      `${r.guest_name || ""} ${r.room_number || ""} ${r.username || ""} ${r.sale_date || ""}`
         .toLowerCase()
         .includes(s)
     );
@@ -125,7 +124,7 @@ export default function Sales() {
                 <img src="/assets/images/search.png" alt="search" />
                 <input
                   type="text"
-                  placeholder="Search guest / room / employee / transaction..."
+                  placeholder="Search guest / room / employee / date..."
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                 />
@@ -162,7 +161,6 @@ export default function Sales() {
           <table className="sales-table">
             <thead>
               <tr>
-                <th>Transaction</th>
                 <th className="th-left">Guest</th>
                 <th>Room</th>
                 <th>Employee</th>
@@ -179,7 +177,7 @@ export default function Sales() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={11} className="sales-empty">
+                  <td colSpan={10} className="sales-empty">
                     Loading...
                   </td>
                 </tr>
@@ -187,7 +185,7 @@ export default function Sales() {
 
               {!loading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="sales-empty">
+                  <td colSpan={10} className="sales-empty">
                     No sales found.
                   </td>
                 </tr>
@@ -196,7 +194,6 @@ export default function Sales() {
               {!loading &&
                 filtered.map((r) => (
                   <tr key={r.trans_id}>
-                    <td className="td-mono">T{r.trans_id}</td>
                     <td className="td-left" title={r.guest_name || ""}>
                       {r.guest_name || "—"}
                     </td>
@@ -231,10 +228,14 @@ export default function Sales() {
               <div>
                 <h2>Purchased Item Details</h2>
                 <p className="sd-sub">
-                  Transaction <b className="td-mono">T{selected?.trans_id ?? "—"}</b>
                   {selected?.guest_name ? (
                     <>
-                      <span className="sd-dot">•</span> Guest <b>{selected.guest_name}</b>
+                      Guest <b>{selected.guest_name}</b>
+                    </>
+                  ) : null}
+                  {selected?.room_number ? (
+                    <>
+                      <span className="sd-dot">•</span> Room <b>{selected.room_number}</b>
                     </>
                   ) : null}
                 </p>
