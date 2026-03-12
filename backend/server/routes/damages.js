@@ -2,6 +2,16 @@ const express = require("express");
 const pool = require("../db");
 const router = express.Router();
 
+// Guest Damage Algorithm:
+// 1. Receive the transaction ID, inventory item, and damage severity from the request.
+// 2. Check if the selected inventory item exists and has available quantity.
+// 3. Retrieve the item value from the inventory table.
+// 4. Determine the damage severity rate based on the selected damage status.
+// 5. Calculate the damage fee by multiplying the item value by the severity rate.
+// 6. Insert the damage record into the guest_damage table and link it to the transaction.
+// 7. Deduct one quantity from the damaged inventory item to reflect the loss.
+// 8. Include the calculated damage fee as part of the transaction's total bill.
+
 function severityRate(damage_status_id) {
   const rates = {
     1: 0.10,

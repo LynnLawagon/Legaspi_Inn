@@ -2,6 +2,16 @@ const express = require("express");
 const pool = require("../db");
 const router = express.Router();
 
+// Employee Damage Algorithm:
+// 1. Receive the employee ID, inventory item, and damage severity from the request.
+// 2. Verify that the inventory item exists and still has available quantity.
+// 3. Retrieve the item value from the inventory table.
+// 4. Determine the severity rate based on the selected damage status.
+// 5. Calculate the damage cost by multiplying the item value by the severity rate.
+// 6. Insert the damage record into the employee_damage table with the responsible employee.
+// 7. Deduct one quantity from the damaged inventory item to maintain accurate stock records.
+// 8. Store the computed damage cost for accountability and reporting.
+
 function severityRate(damage_status_id) {
   const rates = {
     1: 0.10,

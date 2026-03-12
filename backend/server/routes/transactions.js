@@ -3,6 +3,16 @@ const pool = require("../db");
 
 const router = express.Router();
 
+// Transactions Algorithm:
+// 1. Receive guest, user, room, check-in, and check-out details from the request.
+// 2. Compute the total room hours by subtracting check-in time from check-out time and rounding up to the nearest hour.
+// 3. Determine the room rate based on the number of hours stayed using predefined pricing brackets.
+// 4. Validate that the selected room exists and is currently available.
+// 5. Insert the transaction record with the calculated room charge.
+// 6. Update the room status to "not available" once it is assigned to a guest.
+// 7. Later, accumulate additional charges such as guest damages and purchased items.
+// 8. Compute the final bill as the sum of room cost, damage charges, and sales totals.
+
 function calculateRoomRate(hours) {
   if (hours <= 0) return 0;
   if (hours <= 3) return 80;
